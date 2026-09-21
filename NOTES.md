@@ -132,6 +132,33 @@ cache file on disk. What's interesting here — what exactly is in the prompt,
 what the repair loop feeds back, how retries are counted — is precisely what a
 framework hides.
 
+### The baseline prompt is deliberately plain
+
+Schema as the database's own `CREATE TABLE` statements, then the question. No
+examples, no sample values, no retries.
+
+The DDL rather than a hand-written schema summary for three reasons: it is a
+format the model has seen an enormous amount of; it carries types, primary keys
+and foreign keys in one place; and it is read from the database the query will
+actually run against, so it cannot drift out of sync with it.
+
+Keeping the baseline plain is not laziness — it is the number every later
+improvement is measured against. A baseline that already has half the tricks
+folded into it makes the ablation look smaller than it is, and there is no way
+to recover the missing rows afterwards without re-running everything.
+
+### Only retry what can succeed on a retry
+
+The first live call failed with a `TypeError` from inside a dependency, and the
+retry loop dutifully tried it four more times with exponential backoff — seven
+seconds to report an error that was never going to change, with the real
+exception buried under a wrapper.
+
+Now `_is_retryable` gates it: retry on connection errors, timeouts, and HTTP
+408/409/425/429/5xx; re-raise everything else immediately with its original
+traceback. A bad key, a malformed request, or a broken dependency should fail
+in milliseconds and say what actually happened.
+
 ---
 
 ## Things that bit me
@@ -210,3 +237,70 @@ identical queries can then compare unequal. `normalize_value` has a
 ever raise the score, so it stays an explicit reported choice rather than a
 silent one. Whether it actually matters is a question for the error analysis,
 once there are real predictions to look at.
+
+### Every API response died in the HTTP layer before we saw it
+
+The first real call failed with:
+
+    TypeError: Decompressor.decompress() got an unexpected keyword argument
+               'output_buffer_limit'
+
+Not a key problem, not a model problem — the response never reached our code.
+The provider SDK bundles its own HTTP stack, whose brotli decoder calls
+`decompress(data, output_buffer_limit=...)`, while the installed `brotlicffi`
+exposes `decompress(data)`. `brotlicffi 1.1.0.0` is the latest release, so
+there is no version to upgrade to; the mismatch is in the HTTP library.
+
+Fix: ask the API not to brotli-compress at all —
+`Accept-Encoding: gzip, deflate` on both clients. Chosen over uninstalling the
+brotli bindings because that would have meant changing a shared Anaconda
+environment other projects depend on, and over pinning versions because there
+is no working combination to pin to. It costs a little bandwidth on JSON
+payloads of a few kilobytes, and it means anyone who clones this repo gets a
+working client regardless of which brotli bindings they happen to have.
+
+Worth remembering as the general shape of the problem: "the model is broken"
+and "the HTTP client cannot decode the response" look identical from the
+outside. The traceback was the whole answer, and the retry loop was hiding it.
+
+### The extraction fallbacks never fired
+
+`extract_sql` handles markdown fences, leading prose and trailing explanation,
+with eleven tests covering them. Across all 1034 baseline questions,
+**0 responses used a fence and 0 were unparseable** — `gpt-4o-mini` obeyed the
+"nothing else" instruction every time.
+
+Keeping the code and the tests anyway, because the repair loop feeds error
+messages back and asks for a corrected query, which is exactly the prompt shape
+that tends to produce "Sure — here's the fix:" in front of the SQL. Noted here
+so the honest version gets told: this robustness is currently untested against
+real traffic, not proven by it.
+
+### The tuning slice was four databases pretending to be twenty
+
+`dev.json` is ordered by database, so the obvious tuning slice —
+`examples[:200]` — covers **4 of the 20 dev databases**, and 92 of its 200
+questions are `car_1`, which turns out to be the hardest database in the set.
+
+    dev[:200]   64.5%
+    dev[200:]   73.7%
+    full dev    72.0%
+
+Seven and a half points below the full set. Every prompt change would have been
+judged almost entirely on `car_1`, with nothing said about whether the gain
+transferred to the other sixteen databases — and the ablation table is the whole
+point of the project.
+
+Replaced with a proportional stratified sample: each database contributes its
+share of the 200, with a floor of one so no database drops out. It scores
+**74.0%**, two points from the full set instead of seven and a half.
+
+Deterministic on purpose — evenly spaced indices within each database rather
+than a random draw. Two configurations have to be compared on *identical*
+questions, or the difference between them includes the difference between two
+samples. It also means the slice is the same on every machine, with no seed to
+remember.
+
+Caught by comparing the slice against the rest of the set rather than by
+thinking about it in advance. Worth doing for any held-out split whose ordering
+you did not choose yourself.

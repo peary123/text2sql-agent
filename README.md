@@ -58,9 +58,26 @@ memory just as well as a slow one does.
 
 ## Results
 
-Harness validation and dataset numbers are in [results.md](results.md).
-Execution accuracy and the ablation land as the generation stages go in;
-retrieved few-shot examples and the repair loop aren't wired up yet.
+| configuration | tuning slice (200) | full dev (1034) | calls / question | cost |
+|---------------|-----------|-----------------|------------------|------|
+| baseline — DDL + question | 74.0% | **72.0%** | 1.0 | $0.06 |
+
+`gpt-4o-mini`, temperature 0. Where the 290 failures go:
+
+| reason | count |
+|--------|-------|
+| wrong values returned | 232 |
+| wrong number of columns | 46 |
+| invalid SQL | 11 |
+| right rows, wrong order | 1 |
+
+Full breakdown, per-database accuracy and the per-question records are in
+[results.md](results.md). Sample values, retrieved few-shot examples and the
+repair loop aren't wired up yet — those rows fill in as they land.
+
+Prompt iteration happens on a 200-question stratified slice covering all 20
+databases; the full dev set is run once per configuration after that
+configuration is frozen, so the headline number is not tuned against.
 
 ---
 
@@ -82,15 +99,20 @@ python scripts/01_smoke_gold.py
 ```
 
 ```bash
-python tests/test_execute.py && python tests/test_evaluate.py
+python -m pytest tests/ -q
 ```
 
 Tests need neither the dataset nor an API key.
 
-For the generation stages:
+For the generation stages, put your key in a `.env` file at the repo root
+(it is gitignored) or export it, then check the whole setup end to end:
 
 ```bash
-export OPENAI_API_KEY=...
+python scripts/03_check_setup.py
+```
+
+```bash
+python scripts/04_run_baseline.py --limit 0
 ```
 
 `LLM_MODEL` overrides the model (default `gpt-4o-mini`); a `claude-*` value
@@ -102,14 +124,16 @@ reproduce without spending anything.
 
 ```
 src/
-  config.py     paths, and the dev[:200] tuning-slice constant
-  dataset.py    loading dev / train questions
+  config.py     paths, .env loading
+  dataset.py    loading dev / train questions, and the stratified tuning slice
   schema.py     schemas from tables.json and from sqlite_master
   execute.py    read-only, time-bounded SQL execution
   evaluate.py   execution-accuracy scoring
+  generate.py   prompt construction and SQL extraction
   llm.py        provider calls + content-addressed disk cache
 scripts/        runnable entry points, numbered in the order they're useful
-tests/
+tests/          37 tests; none need the dataset or an API key
+results/        per-question records for every run in results.md
 results.md      every run and the configuration that produced it
 NOTES.md        decisions, and what went wrong
 ```
