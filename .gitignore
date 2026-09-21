@@ -5,9 +5,9 @@ data/*
 # cached LLM responses (regenerable, and can contain API output)
 .llm_cache/
 
-# experiment outputs
-results/*.jsonl
-results/*.json
+# Per-question run records ARE committed: they are the evidence behind every
+# number in results.md, and they are what the error analysis is done on.
+# A full dev run is ~700 KB.
 
 # secrets
 .env
