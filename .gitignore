@@ -1,0 +1,27 @@
+# Spider dataset — ~100 MB of sqlite files, never commit
+data/*
+!data/README.md
+
+# cached LLM responses (regenerable, and can contain API output)
+.llm_cache/
+
+# experiment outputs
+results/*.jsonl
+results/*.json
+
+# secrets
+.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

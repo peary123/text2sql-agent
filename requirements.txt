@@ -1,0 +1,13 @@
+# step 1-2 need nothing but the standard library; this is for what follows.
+
+openai>=1.59.0
+
+# The client also speaks Anthropic; uncomment to use a Claude model instead.
+# anthropic>=0.40.0
+
+# few-shot example retrieval
+scikit-learn>=1.4
+
+# serving
+fastapi>=0.115
+uvicorn[standard]>=0.34

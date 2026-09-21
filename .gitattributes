@@ -1,0 +1,10 @@
+# Store text files with LF in the repository and check them out with the
+# platform's native line endings. Without this, a repo written on Windows
+# shows up as "every line changed" when someone clones it on Linux -- and it
+# is what those "LF will be replaced by CRLF" warnings are about.
+* text=auto
+
+# Never touch these, whatever the extension heuristics think.
+*.sqlite binary
+*.zip binary
+*.png binary
