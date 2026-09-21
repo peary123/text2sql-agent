@@ -21,6 +21,7 @@ import hashlib
 import json
 import os
 import random
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,6 +31,46 @@ from . import config
 DEFAULT_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
 DEFAULT_MAX_TOKENS = 600
 _RETRIES = 4
+
+# Ask the API not to brotli-compress its responses.
+#
+# The provider SDKs bundle their own HTTP stack, and one combination of it and
+# the installed brotli bindings calls `decompress(data, output_buffer_limit=...)`
+# against a `decompress(data)` that has no such parameter -- so every response
+# dies in the decoder with a TypeError, before any of our code sees it. There is
+# no newer brotli release that adds the parameter, so this is not a "pin your
+# dependencies" problem.
+#
+# Dropping brotli costs a little bandwidth on JSON payloads of a few kilobytes
+# and removes a dependency on an optional C extension whose version we do not
+# control. Cheap insurance for anyone who clones this repo.
+_HTTP_HEADERS = {"Accept-Encoding": "gzip, deflate"}
+
+# HTTP statuses where trying the identical request again is reasonable:
+# timeouts, lock contention, rate limits, and server-side faults.
+_RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
+_RETRYABLE_NAMES = {
+    "APIConnectionError",
+    "APITimeoutError",
+    "RateLimitError",
+    "InternalServerError",
+    "ConnectionError",
+    "Timeout",
+}
+
+
+def _is_retryable(exc: Exception) -> bool:
+    """Is this failure worth trying again?
+
+    Retrying everything is a real cost, not just untidiness: a malformed
+    request or a bad key fails identically on every attempt, so a blind retry
+    loop turns an instant error into one that takes 7 seconds of backoff to
+    report, and buries the actual exception under a wrapper.
+    """
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return status in _RETRYABLE_STATUS
+    return type(exc).__name__ in _RETRYABLE_NAMES
 
 
 @dataclass
@@ -99,6 +140,9 @@ class LLMClient:
         )
         self.usage = UsageStats()
         self._client = None  # created lazily so cached runs need no API key
+        # The evaluation runner calls this from a thread pool; the counters
+        # and the lazily-built SDK client are the only shared mutable state.
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ cache
 
@@ -161,7 +205,8 @@ class LLMClient:
         key = self._key(system + "\x00" + cache_salt, user, temperature, max_tokens)
         hit = self._read_cache(key)
         if hit is not None:
-            self.usage.cache_hits += 1
+            with self._lock:
+                self.usage.cache_hits += 1
             return LLMResponse(
                 text=hit["text"],
                 cached=True,
@@ -180,9 +225,10 @@ class LLMClient:
         text, in_tok, out_tok = self._call_with_retries(system, user, temperature, max_tokens)
         latency = time.monotonic() - started
 
-        self.usage.calls += 1
-        self.usage.input_tokens += in_tok
-        self.usage.output_tokens += out_tok
+        with self._lock:
+            self.usage.calls += 1
+            self.usage.input_tokens += in_tok
+            self.usage.output_tokens += out_tok
 
         self._write_cache(
             key,
@@ -218,8 +264,10 @@ class LLMClient:
                 if self.provider == "anthropic":
                     return self._call_anthropic(system, user, temperature, max_tokens)
                 return self._call_openai(system, user, temperature, max_tokens)
-            except Exception as exc:  # rate limits, overloads, transient 5xx
+            except Exception as exc:
                 last = exc
+                if not _is_retryable(exc):
+                    raise  # surfaces the real exception, with its traceback
                 if attempt == _RETRIES - 1:
                     break
                 # Exponential backoff with jitter: a synchronised retry storm
@@ -231,10 +279,11 @@ class LLMClient:
     def _call_anthropic(
         self, system: str, user: str, temperature: float, max_tokens: int
     ) -> tuple[str, int, int]:
-        if self._client is None:
-            import anthropic
+        with self._lock:
+            if self._client is None:
+                import anthropic
 
-            self._client = anthropic.Anthropic()
+                self._client = anthropic.Anthropic(default_headers=_HTTP_HEADERS)
         msg = self._client.messages.create(
             model=self.model,
             max_tokens=max_tokens,
@@ -248,10 +297,11 @@ class LLMClient:
     def _call_openai(
         self, system: str, user: str, temperature: float, max_tokens: int
     ) -> tuple[str, int, int]:
-        if self._client is None:
-            import openai
+        with self._lock:
+            if self._client is None:
+                import openai
 
-            self._client = openai.OpenAI()
+                self._client = openai.OpenAI(default_headers=_HTTP_HEADERS)
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
