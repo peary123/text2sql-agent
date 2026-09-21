@@ -49,14 +49,56 @@ def _load(path: Path) -> list[Example]:
     ]
 
 
-def load_dev(limit: int | None = None) -> list[Example]:
-    """The 1034-question dev set (20 databases), optionally truncated.
+def load_dev(limit: int | None = None, stratified: bool = True) -> list[Example]:
+    """The dev set, or a subset of it to iterate on.
 
-    Pass `limit=config.DEV_TUNING_SLICE` while iterating on prompts; report
-    final numbers with no limit.
+    `limit` returns a *stratified* subset by default, not the first N. dev.json
+    is ordered by database, so `examples[:200]` covers 4 of the 20 databases and
+    is 92/200 `car_1`, the hardest one -- it scores 64.5% where the full set
+    scores 72.0%. Tuning prompts on that is tuning on `car_1`, and nothing says
+    whether the gain transfers to the other sixteen databases.
     """
     examples = _load(config.DEV_JSON)
-    return examples[:limit] if limit else examples
+    if not limit or limit >= len(examples):
+        return examples
+    return stratified_sample(examples, limit) if stratified else examples[:limit]
+
+
+def stratified_sample(examples: list[Example], n: int) -> list[Example]:
+    """`n` examples that mirror the full set's mix of databases.
+
+    Proportional so the subset predicts the whole: a database holding 12% of
+    dev contributes ~12% of the sample. Every database gets at least one
+    question, so no database can silently drop out of the tuning loop.
+
+    Deterministic -- evenly spaced indices within each database rather than a
+    random draw -- so the subset is the same on every machine and every run,
+    and two configurations are always compared on identical questions.
+    """
+    by_db: dict[str, list[Example]] = {}
+    for ex in examples:
+        by_db.setdefault(ex.db_id, []).append(ex)
+
+    total = len(examples)
+    quota = {db: max(1, round(n * len(rows) / total)) for db, rows in by_db.items()}
+
+    # Rounding up per database overshoots; trim from the largest quotas so the
+    # result is exactly n and the small databases keep their single question.
+    while sum(quota.values()) > n:
+        biggest = max(quota, key=lambda db: (quota[db], db))
+        if quota[biggest] <= 1:
+            break
+        quota[biggest] -= 1
+
+    chosen: list[Example] = []
+    for db, rows in by_db.items():
+        k = min(quota[db], len(rows))
+        step = len(rows) / k
+        chosen.extend(rows[int(i * step)] for i in range(k))
+
+    # Keep the original dev order so result files line up between runs.
+    order = {ex.qid: i for i, ex in enumerate(examples)}
+    return sorted(chosen, key=lambda ex: order[ex.qid])
 
 
 def load_train(limit: int | None = None) -> list[Example]:
