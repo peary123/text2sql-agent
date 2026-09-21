@@ -13,6 +13,27 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _load_dotenv(path: Path) -> None:
+    """Read KEY=value lines from a .env file into the environment.
+
+    Ten lines instead of a dependency. Variables already set in the environment
+    win, so an explicitly exported key is never silently overridden by a stale
+    file. `.env` is gitignored -- an API key must never reach the repository.
+    """
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
+# Done at import time, before anything below reads os.environ.
+_load_dotenv(PROJECT_ROOT / ".env")
+
+
 def _find_spider_dir() -> Path:
     """Locate the extracted Spider release.
 
