@@ -11,6 +11,7 @@ already has half the tricks in it makes the ablation look worse than it is.
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 
@@ -47,6 +48,8 @@ class PromptConfig:
 
     only_requested_columns: bool = False
     column_order: bool = False
+    sample_rows: bool = False
+    column_values: bool = False
 
     @property
     def tag(self) -> str:
@@ -56,6 +59,8 @@ class PromptConfig:
             for name, on in (
                 ("onlycols", self.only_requested_columns),
                 ("colorder", self.column_order),
+                ("rows", self.sample_rows),
+                ("values", self.column_values),
             )
             if on
         ]
@@ -90,21 +95,79 @@ class Generation:
     attempts: list[str] = field(default_factory=list)
 
 
-def render_schema(db_id: str) -> str:
+_TABLE_NAME = re.compile(r"""CREATE\s+TABLE\s+["\[`]?([A-Za-z_][A-Za-z_0-9]*)""", re.I)
+
+
+def _table_name(ddl: str) -> str | None:
+    match = _TABLE_NAME.search(ddl)
+    return match.group(1) if match else None
+
+
+def _render_sample_rows(db_id: str, table: str) -> str:
+    """A few real rows, as SQL comments under the CREATE statement."""
+    columns, rows = schema.sample_rows(db_id, table)
+    if not rows:
+        return ""
+    lines = [f"-- {len(rows)} example row(s):", "--   " + " | ".join(columns)]
+    lines += ["--   " + " | ".join(schema.format_value(v) for v in row) for row in rows]
+    return "\n".join(lines)
+
+
+def _render_column_values(db_id: str, table: str) -> str:
+    """List the values of every text column with few enough to enumerate.
+
+    Aimed at the largest fixable error class in the baseline: a literal in a
+    WHERE clause that does not match what the column actually holds. Writing
+    `Country = 'France'` is only a mistake if you cannot see that the column
+    holds country ids, and `Citizenship != 'French'` is only a mistake if you
+    cannot see that it holds 'France'.
+    """
+    db_schema = schema.load_schema(db_id)
+    lines = []
+    for column in db_schema.columns_of(table):
+        if column.type != "text":
+            continue
+        n, values = schema.enumerated_values(db_id, table, column.name)
+        if not values:
+            continue
+        shown = ", ".join(schema.format_value(v) for v in values)
+        more = "" if n <= len(values) else f", ... ({n} total)"
+        lines.append(f"-- {column.name} holds: {shown}{more}")
+    return "\n".join(lines)
+
+
+@functools.lru_cache(maxsize=256)
+def render_schema(db_id: str, config: PromptConfig = PromptConfig()) -> str:
     """The schema as the model sees it: the database's own CREATE statements.
 
     Not a hand-rolled summary. A real DDL is a format the model has seen a very
     large amount of, it carries types, primary keys and foreign keys in one
     place, and it cannot drift out of sync with the database the query will run
     against, because it is read from that database.
+
+    Sample rows and column values are appended as SQL comments, so the block
+    stays one valid-looking DDL rather than becoming a second format the model
+    has to parse.
+
+    Cached: 20 dev databases answer 1034 questions, so without this the same
+    schema -- and its SQLite queries -- is rebuilt fifty times over.
     """
-    return "\n\n".join(schema.create_statements(db_id))
+    blocks = []
+    for ddl in schema.create_statements(db_id):
+        table = _table_name(ddl)
+        parts = [ddl]
+        if table and config.sample_rows:
+            parts.append(_render_sample_rows(db_id, table))
+        if table and config.column_values:
+            parts.append(_render_column_values(db_id, table))
+        blocks.append("\n".join(p for p in parts if p))
+    return "\n\n".join(blocks)
 
 
-def build_prompt(db_id: str, question: str) -> str:
-    """The baseline user message: schema, then question."""
+def build_prompt(db_id: str, question: str, config: PromptConfig = PromptConfig()) -> str:
+    """The user message: schema, then question."""
     return (
-        f"{render_schema(db_id)}\n\n"
+        f"{render_schema(db_id, config)}\n\n"
         f"-- Using the schema above, write a SQLite query for this question.\n"
         f"-- Question: {question}\n"
         f"-- Query:"
@@ -192,7 +255,7 @@ def generate_sql(
     cache_salt: str = "",
 ) -> Generation:
     """One question in, one candidate query out."""
-    prompt = build_prompt(db_id, question)
+    prompt = build_prompt(db_id, question, config)
     response = client.complete(
         user=prompt,
         system=build_system_prompt(config),

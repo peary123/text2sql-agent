@@ -94,12 +94,18 @@ def main() -> int:
                         help="tell the model not to add unrequested columns")
     parser.add_argument("--column-order", action="store_true",
                         help="tell the model to order columns as the question does")
+    parser.add_argument("--sample-rows", action="store_true",
+                        help="show a few real rows under each CREATE TABLE")
+    parser.add_argument("--column-values", action="store_true",
+                        help="list the values of low-cardinality text columns")
     parser.add_argument("--tag", default=None, help="override the output file name")
     args = parser.parse_args()
 
     config = PromptConfig(
         only_requested_columns=args.only_requested_columns,
         column_order=args.column_order,
+        sample_rows=args.sample_rows,
+        column_values=args.column_values,
     )
     tag = args.tag or config.tag
 
