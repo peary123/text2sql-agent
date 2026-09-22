@@ -58,9 +58,10 @@ and is 92/200 `car_1` — the hardest one. It scores 64.5% against the full set'
 covers all 20 databases with each one's share within 0.5% of its share of the
 full set, and scores 74.0% — a 2.0-point gap instead of 7.5.
 
-| # | configuration | tuning slice | full dev | LLM calls / question | cost | wall clock |
-|---|---------------|-----------|----------|----------------------|------|------------|
-| 1 | baseline — DDL + question | 74.0% | **72.0%** (744/1034) | 1.0 | $0.062 | 84 s |
+| # | configuration | tuning slice | full dev | vs. previous | McNemar p | calls / q | cost |
+|---|---------------|--------------|----------|--------------|-----------|-----------|------|
+| 1 | baseline — DDL + question | 74.0% | 72.0% (744/1034) | — | — | 1.0 | $0.062 |
+| 2 | + column instructions | 76.0% | **74.2%** (767/1034) | **+2.2%** | **0.010** | 1.0 | $0.064 |
 
 Per-question records: [`results/baseline_full.jsonl`](results/baseline_full.jsonl).
 Re-runs are free and byte-identical — `--offline` serves the whole run from the
@@ -104,6 +105,89 @@ Model behaviour: **0 responses were unparseable** and **0 used markdown
 fences** — the "reply with SQL and nothing else" instruction held for every one
 of the 1034 questions, so none of the extraction fallbacks in `generate.py`
 were exercised on this run.
+
+### Run 2 — two sentences about columns
+
+Targets the two largest categories in the error analysis: `column_order` (24%)
+and `extra_column` (16%), 40% of failures between them. Both are one sentence
+in the system prompt:
+
+    Select only the columns the question asks for. Do not add an id, a count,
+    or any other column that was not requested.
+    List the selected columns in the order the question mentions them.
+
+Each sentence was also run alone, so the pair can be attributed:
+
+| configuration | tuning slice (200) | rank | full dev (1034) | rank | vs. baseline | McNemar p |
+|---------------|--------------------|------|-----------------|------|--------------|-----------|
+| baseline | 74.0% | — | 72.0% | — | — | — |
+| + column order | 76.5% | 2 | 73.6% | 2 | +1.6% | 0.043 |
+| + only requested columns | **77.0%** | **1** | 73.2% | **3** | +1.3% | 0.105 |
+| + both | 76.0% | **3** | **74.2%** | **1** | **+2.2%** | **0.010** |
+
+**The configuration that ranked last on the tuning slice ranked first on the
+full dev set.** On 200 questions all three differences were inside the noise
+(McNemar p = 0.11 to 0.34; 190 of 200 questions answered identically and carry
+no information). Picking the slice winner would have selected
+`only requested columns`, which on the full set is the weakest of the three and
+does not reach significance.
+
+The pair was chosen **before the full-dev runs**, on the grounds that the error
+analysis had independently identified both categories and the slice gave no
+evidence they interfere. Recording that here because it is the only thing that
+makes "+2.2%, p = 0.010" a result rather than a search over four options.
+
+Mechanism check — the instructions moved the error they were aimed at:
+
+| evaluator reason | baseline | run 2 | change |
+|------------------|----------|-------|--------|
+| match | 744 | 767 | **+23** |
+| column_count_mismatch | 46 | 19 | **−27** |
+| value_mismatch | 232 | 227 | −5 |
+| exec_error:sql_error | 11 | 19 | **+8** |
+| order_mismatch | 1 | 2 | +1 |
+
+48 questions fixed, 25 broken.
+
+### Did each sentence move the error it aimed at?
+
+Net accuracy hides this, so both target categories are counted directly. A
+**column permutation** — the prediction holds exactly the right data and only
+the column order differs — is detected exactly, by trying every reordering of
+the predicted columns (`evaluate.is_column_permutation`, recorded per failure).
+No sampling, no projection from hand labels.
+
+| configuration | accuracy | permutation failures | wrong-column-count failures |
+|---------------|----------|----------------------|------------------------------|
+| baseline | 72.0% | 51 | 46 |
+| + column order | 73.6% | **42** (−9) | 31 |
+| + only requested columns | 73.2% | 48 (−3) | **22** (−24) |
+| + both | 74.2% | 44 (−7) | **19** (−27) |
+
+**One sentence worked and one mostly did not.**
+
+- *Only requested columns* took its category from 46 to 19 — **59% recovered**.
+- *Column order* took its category from 51 to 44 — **14% recovered**. Alone it
+  managed 9 of 51, which is the best it ever did.
+
+So most of the +2.2% came from one of the two sentences, and **44 questions
+(4.3% of the dev set) still return exactly the right data in the wrong column
+order**. Telling the model the convention in prose does not teach it the
+convention. That is consistent with what the training split says: gold follows
+the question's word order only 74% of the time, so there is no rule to state —
+which makes this a retrieval problem rather than an instruction problem.
+Retrieved few-shot examples show the expected column order *in context* rather
+than describing it, and this category is the concrete thing to judge them on.
+
+**The +8 invalid queries are a real cost, not rounding.** Constraining column
+selection pushed the model to drop joins it still needed:
+
+    SELECT Make, Year FROM cars_data WHERE Year = (SELECT MIN(Year) FROM cars_data)
+
+`Make` lives on `car_names`, which is no longer joined. Told to return fewer
+columns, the model narrowed the FROM clause with them. These 8 are exactly what
+the execute-and-repair loop should recover, which makes run 2 a reason to expect
+more from run 5 than its own error category suggests.
 
 ---
 
@@ -180,6 +264,9 @@ gold is the questionable one:
 - `battle_death#493` — "List the name, date and result of each battle." Gold
   selects name and date.
 
-If 16% of the remaining 290 failures are like this, the realistic ceiling for
-this benchmark is around **76%**, not 100%. Worth stating before reporting any
-improvement against it.
+If that rate holds across all 290 failures, about **46 questions (4.5% of the
+dev set) cannot be answered correctly**, putting the realistic ceiling near
+**95%** rather than 100%. For scale, published results on Spider dev with strong
+models and specialised pipelines land around 84-86%, so the headroom above the
+72% baseline is real and large. Worth stating before reporting any improvement
+against it.

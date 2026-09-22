@@ -354,3 +354,101 @@ column-order difference, and a case where Spider's own answer is wrong.
 Grouping by error code and calling it analysis would have produced one bucket
 labelled "the values were different", which is true and useless. The fifty
 hand labels are what turn 290 failures into a list of things to build.
+
+### The tuning slice ranked the configurations backwards
+
+Three prompt variants, measured on the 200-question slice first:
+
+    + column order              76.5%   (2nd)
+    + only requested columns    77.0%   (1st)
+    + both                      76.0%   (3rd)
+
+Then the same three on the full dev set:
+
+    + column order              73.6%   (2nd)
+    + only requested columns    73.2%   (3rd)
+    + both                      74.2%   (1st)
+
+The slice's winner is the full set's loser, and its loser is the winner.
+
+Nothing went wrong — the slice was never able to rank them. Of its 200
+questions, 190 were answered identically by every variant and carry no
+information at all; the ranking rested on 9 to 11 flipped questions.
+McNemar put every slice comparison at p = 0.11 to 0.34. A one-question gap
+between two configurations is a coin toss being read as a result.
+
+Two things follow, and I am keeping both:
+
+**Use a paired test, not two accuracy figures.** Both runs answer the same
+questions, so the informative unit is the *disagreement*: 48 fixed, 25 broken.
+Comparing 72.0% against 74.2% as if they were independent samples throws away
+the pairing and needs far more data for the same confidence.
+
+**Decide the configuration before running the thing you will report.** The pair
+was chosen on the error analysis — it had independently found both categories,
+and the slice showed no evidence of interference — and written down before any
+full-dev run. Had I picked the slice winner instead, I would have shipped
+`only requested columns`: +1.3% on the full set, p = 0.105, not significant.
+"+2.2%, p = 0.010" is a result; the same number picked out of four options
+after the fact is a search.
+
+### An instruction that helps can also break things
+
+Run 2 fixed 48 questions and broke 25. The breakage is not noise, and it has a
+mechanism:
+
+    -- "select only the columns the question asks for"
+    SELECT Make, Year FROM cars_data WHERE Year = (SELECT MIN(Year) FROM cars_data)
+
+`Make` is on `car_names`. Told to return fewer columns, the model narrowed the
+FROM clause along with them and dropped a join it still needed. Invalid SQL
+went from 11 to 19 questions while the error actually targeted,
+`column_count_mismatch`, went from 46 to 19.
+
+Reporting the net (+2.2%) without the decomposition would have hidden a
+regression inside an improvement. It also predicts something: those 8 broken
+queries fail with a SQLite error message, which is exactly the input the
+execute-and-repair loop takes. The cost of this change is recoverable by a
+later one, and that is only visible because the breakdown was kept.
+
+### Measure the target category, not just the headline
+
+Run 2 added two sentences and accuracy went from 72.0% to 74.2%. That number
+says the change was worth keeping. It does not say *which* sentence earned it,
+and averaged over two categories it hid the fact that one of them barely moved.
+
+Column permutations can be counted exactly — try every reordering of the
+predicted columns and see if any of them matches gold — so there is no excuse
+for projecting that category from a 50-question sample. Counted exactly:
+
+    configuration              accuracy   permutations   wrong column count
+    baseline                     72.0%         51               46
+    + column order               73.6%         42               31
+    + only requested columns     73.2%         48               22
+    + both                       74.2%         44               19
+
+"Only requested columns" recovered 59% of its category. "Column order"
+recovered 14%. Most of the +2.2% came from one sentence.
+
+This also explains itself: gold follows the question's word order only 74% of
+the time, so there is no rule to state, and stating the tendency in prose did
+not teach it. Column order looks like a retrieval problem — a few-shot example
+*shows* the expected order instead of describing it — which gives the next run
+a specific prediction to be judged against rather than a vague hope of
+improvement.
+
+The general point: an ablation row should carry the count of the error it was
+aimed at, not only the headline. Otherwise a change that half works and a change
+that fully works look identical.
+
+### An arithmetic slip worth keeping written down
+
+I recorded the ceiling as "around 76%" after finding that 16% of sampled
+failures are not the model's mistake. That is wrong: 16% *of the 290 failures*
+is about 46 questions, which is 4.5% of the 1034-question dev set, so the
+ceiling is near **95%**, not 76%.
+
+Confusing "share of failures" with "share of the whole" made the remaining
+headroom look like 4 points when it is more than 20. Published Spider dev
+results with strong models sit around 84-86%, which is the number worth
+measuring against.

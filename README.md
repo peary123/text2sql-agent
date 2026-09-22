@@ -58,9 +58,20 @@ memory just as well as a slow one does.
 
 ## Results
 
-| configuration | tuning slice (200) | full dev (1034) | calls / question | cost |
-|---------------|-----------|-----------------|------------------|------|
-| baseline — DDL + question | 74.0% | **72.0%** | 1.0 | $0.06 |
+| configuration | tuning slice (200) | full dev (1034) | vs. previous | McNemar p |
+|---------------|--------------------|-----------------|--------------|-----------|
+| baseline — DDL + question | 74.0% | 72.0% | — | — |
+| + two sentences about columns | 76.0% | **74.2%** | **+2.2%** | **0.010** |
+
+Differences are tested with a paired **McNemar exact test**, not by comparing
+two accuracy figures — both runs answer the same questions, so the informative
+unit is the 73 they disagree on, not the 961 they don't.
+
+The gain is real but uneven: of the two sentences added, one took its target
+error from 46 questions to 19 and the other took its target from 51 to 44.
+**44 questions still return exactly the right data in the wrong column order** —
+measured exactly, by trying every reordering. Stating a convention in prose did
+not teach it.
 
 `gpt-4o-mini`, temperature 0. Where the 290 failures go:
 
@@ -103,7 +114,7 @@ Three things that came out of it:
 - **The ceiling is not 100%.** 16% of sampled failures aren't the model's
   mistake — "How many states are there?" has a gold query that counts area-code
   rows and answers 305, where the prediction's `COUNT(DISTINCT state)` answers
-  51. Realistic ceiling here is around 76%.
+  51. That is ~46 of the 1034 dev questions, putting the ceiling near 95%.
 
 One pattern from this sample did not survive checking: gold looked
 aggregate-first in all twelve column-order failures, but across the 7000
