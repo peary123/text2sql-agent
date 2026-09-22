@@ -1,4 +1,4 @@
-"""Run a generation configuration over the dev set and score it.
+"""Run one prompt configuration over the dev set and score it.
 
 Writes one JSONL record per question -- prompt inputs, raw response, extracted
 SQL, the judgement and why -- because the aggregate number is not what the
@@ -6,10 +6,14 @@ error analysis needs. Re-running is cheap: every model response is cached, so a
 second run of the same configuration costs nothing and produces byte-identical
 output.
 
+Each prompt feature is its own flag, so a run differs from the one before it by
+exactly one thing and the ablation can attribute the difference to it.
+
 Usage:
-    python scripts/04_run_baseline.py --limit 200          # tuning slice
-    python scripts/04_run_baseline.py --limit 0            # full dev set
-    python scripts/04_run_baseline.py --limit 0 --offline  # from cache only
+    python scripts/04_run_eval.py --limit 200                     # baseline
+    python scripts/04_run_eval.py --limit 200 --column-order      # one change
+    python scripts/04_run_eval.py --limit 0 --column-order --only-requested-columns
+    python scripts/04_run_eval.py --limit 0 --offline             # from cache
 """
 
 from __future__ import annotations
@@ -27,9 +31,10 @@ sys.path.insert(0, str(ROOT))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from src import config, dataset  # noqa: E402
+from src import config as paths  # noqa: E402
+from src import dataset  # noqa: E402
 from src.evaluate import Summary, score  # noqa: E402
-from src.generate import generate_sql  # noqa: E402
+from src.generate import PromptConfig, generate_sql  # noqa: E402
 from src.llm import DEFAULT_MODEL, LLMClient  # noqa: E402
 
 # gpt-4o-mini list price, USD per million tokens. Only used for the cost line
@@ -37,11 +42,11 @@ from src.llm import DEFAULT_MODEL, LLMClient  # noqa: E402
 PRICE_IN, PRICE_OUT = 0.15, 0.60
 
 
-def run_one(client: LLMClient, example: dataset.Example) -> dict:
+def run_one(client: LLMClient, example: dataset.Example, config: PromptConfig) -> dict:
     """Generate, score, and return the record for one question."""
     started = time.monotonic()
     try:
-        generation = generate_sql(client, example.db_id, example.question)
+        generation = generate_sql(client, example.db_id, example.question, config)
     except Exception as exc:  # a failed call is a failed question, not a crash
         return {
             "qid": example.qid,
@@ -68,6 +73,7 @@ def run_one(client: LLMClient, example: dataset.Example) -> dict:
         "reason": judgement.reason,
         "gold_rows": judgement.gold_rows,
         "pred_rows": judgement.pred_rows,
+        "column_permutation": judgement.column_permutation,
         "prompt_tokens": generation.prompt_tokens,
         "completion_tokens": generation.completion_tokens,
         "cached": generation.cached,
@@ -77,22 +83,32 @@ def run_one(client: LLMClient, example: dataset.Example) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--limit", type=int, default=config.DEV_TUNING_SLICE,
+    parser.add_argument("--limit", type=int, default=paths.DEV_TUNING_SLICE,
                         help="0 means the whole dev set")
     parser.add_argument("--workers", type=int, default=8,
                         help="concurrent requests; lower this if rate-limited")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--offline", action="store_true",
                         help="serve from cache only; error on a miss")
-    parser.add_argument("--tag", default="baseline", help="name for the output file")
+    parser.add_argument("--only-requested-columns", action="store_true",
+                        help="tell the model not to add unrequested columns")
+    parser.add_argument("--column-order", action="store_true",
+                        help="tell the model to order columns as the question does")
+    parser.add_argument("--tag", default=None, help="override the output file name")
     args = parser.parse_args()
 
-    config.require_data()
+    config = PromptConfig(
+        only_requested_columns=args.only_requested_columns,
+        column_order=args.column_order,
+    )
+    tag = args.tag or config.tag
+
+    paths.require_data()
     examples = dataset.load_dev(limit=args.limit or None)
     client = LLMClient(model=args.model, offline=args.offline)
 
-    slice_label = f"dev[:{args.limit}]" if args.limit else "full dev set"
-    print(f"config : {args.tag}")
+    slice_label = f"stratified {args.limit}" if args.limit else "full dev set"
+    print(f"config : {tag}")
     print(f"model  : {args.model}  (temperature 0)")
     print(f"data   : {slice_label}, {len(examples)} questions")
     print(f"workers: {args.workers}\n")
@@ -100,7 +116,8 @@ def main() -> int:
     started = time.monotonic()
     records: list[dict] = []
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        for i, record in enumerate(pool.map(lambda ex: run_one(client, ex), examples), 1):
+        work = pool.map(lambda ex: run_one(client, ex, config), examples)
+        for i, record in enumerate(work, 1):
             records.append(record)
             if i % 25 == 0 or i == len(examples):
                 so_far = sum(r["correct"] for r in records)
@@ -114,12 +131,18 @@ def main() -> int:
         from src.evaluate import Judgement
 
         summary.add(
-            Judgement(record["correct"], record["reason"], record.get("gold_rows", 0),
-                      record.get("pred_rows", 0))
+            Judgement(
+                record["correct"],
+                record["reason"],
+                record.get("gold_rows", 0),
+                record.get("pred_rows", 0),
+                record.get("column_permutation", False),
+            )
         )
 
-    config.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = config.RESULTS_DIR / f"{args.tag}_{'full' if not args.limit else args.limit}.jsonl"
+    paths.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = "full" if not args.limit else str(args.limit)
+    out_path = paths.RESULTS_DIR / f"{tag}_{suffix}.jsonl"
     with out_path.open("w", encoding="utf-8") as fh:
         for record in records:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
