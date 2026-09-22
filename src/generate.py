@@ -17,11 +17,63 @@ from dataclasses import dataclass, field
 from . import schema
 from .llm import DEFAULT_MAX_TOKENS, LLMClient
 
-SYSTEM_PROMPT = (
+BASE_SYSTEM_PROMPT = (
     "You translate natural-language questions into SQLite queries.\n"
     "Reply with a single SQLite SELECT statement and nothing else: "
     "no explanation, no markdown fences, no trailing commentary."
 )
+
+# Each line below is switched on by one flag of PromptConfig, so the ablation
+# can attribute a change in accuracy to a specific sentence rather than to "the
+# prompt got better". The wording is short on purpose: a long instruction block
+# competes for attention with the schema.
+ONLY_REQUESTED_COLUMNS = (
+    "Select only the columns the question asks for. Do not add an id, a count, "
+    "or any other column that was not requested."
+)
+COLUMN_ORDER = (
+    "List the selected columns in the order the question mentions them."
+)
+
+
+@dataclass(frozen=True)
+class PromptConfig:
+    """Which parts of the prompt are switched on.
+
+    Frozen and hashable so a configuration can be passed around, put in a
+    filename, and compared. Every field defaults to off, so `PromptConfig()` is
+    exactly the baseline that everything else is measured against.
+    """
+
+    only_requested_columns: bool = False
+    column_order: bool = False
+
+    @property
+    def tag(self) -> str:
+        """Short name used for result filenames and the ablation table."""
+        parts = [
+            name
+            for name, on in (
+                ("onlycols", self.only_requested_columns),
+                ("colorder", self.column_order),
+            )
+            if on
+        ]
+        return "+".join(["base", *parts])
+
+
+def build_system_prompt(config: PromptConfig = PromptConfig()) -> str:
+    lines = [BASE_SYSTEM_PROMPT]
+    if config.only_requested_columns:
+        lines.append(ONLY_REQUESTED_COLUMNS)
+    if config.column_order:
+        lines.append(COLUMN_ORDER)
+    return "\n".join(lines)
+
+
+# Kept so existing callers and the cached baseline responses still resolve to
+# the same string.
+SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 
 
 @dataclass
@@ -134,6 +186,7 @@ def generate_sql(
     client: LLMClient,
     db_id: str,
     question: str,
+    config: PromptConfig = PromptConfig(),
     temperature: float = 0.0,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     cache_salt: str = "",
@@ -142,7 +195,7 @@ def generate_sql(
     prompt = build_prompt(db_id, question)
     response = client.complete(
         user=prompt,
-        system=SYSTEM_PROMPT,
+        system=build_system_prompt(config),
         temperature=temperature,
         max_tokens=max_tokens,
         cache_salt=cache_salt,

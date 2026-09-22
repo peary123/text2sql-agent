@@ -14,7 +14,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.generate import extract_sql  # noqa: E402
+from src.generate import (  # noqa: E402
+    BASE_SYSTEM_PROMPT,
+    PromptConfig,
+    build_system_prompt,
+    extract_sql,
+)
 
 
 def test_bare_sql() -> None:
@@ -75,6 +80,49 @@ def test_sql_keyword_inside_prose_is_not_mistaken_for_a_query() -> None:
     """A line of explanation containing no SQL punctuation ends the query."""
     text = "SELECT a FROM t\nNote that ordering is unspecified here"
     assert extract_sql(text) == "SELECT a FROM t"
+
+
+# ------------------------------------------------------ prompt configuration
+
+def test_default_config_is_exactly_the_baseline() -> None:
+    """Every later number is a delta against this, so it must not drift.
+
+    The cache is keyed on the prompt text, so a stray character here would
+    silently invalidate every cached baseline response and re-bill the run.
+    """
+    assert build_system_prompt() == BASE_SYSTEM_PROMPT
+    assert build_system_prompt(PromptConfig()) == BASE_SYSTEM_PROMPT
+    assert PromptConfig().tag == "base"
+
+
+def test_each_flag_adds_exactly_its_own_line() -> None:
+    base_lines = len(BASE_SYSTEM_PROMPT.splitlines())
+    only = build_system_prompt(PromptConfig(only_requested_columns=True))
+    order = build_system_prompt(PromptConfig(column_order=True))
+    both = build_system_prompt(PromptConfig(only_requested_columns=True, column_order=True))
+
+    assert len(only.splitlines()) == base_lines + 1
+    assert len(order.splitlines()) == base_lines + 1
+    assert len(both.splitlines()) == base_lines + 2
+    # each single-flag prompt is a prefix of the combined one in flag order
+    assert both.startswith(only)
+
+
+def test_tags_are_distinct_and_stable() -> None:
+    """Tags name result files, so two configurations must never collide."""
+    tags = {
+        PromptConfig().tag,
+        PromptConfig(only_requested_columns=True).tag,
+        PromptConfig(column_order=True).tag,
+        PromptConfig(only_requested_columns=True, column_order=True).tag,
+    }
+    assert len(tags) == 4
+    assert PromptConfig(column_order=True).tag == "base+colorder"
+
+
+def test_config_is_hashable() -> None:
+    """Frozen, so a configuration can key a dict of runs."""
+    assert len({PromptConfig(), PromptConfig(), PromptConfig(column_order=True)}) == 2
 
 
 if __name__ == "__main__":
