@@ -58,22 +58,35 @@ memory just as well as a slow one does.
 
 ## Results
 
+**72.0% to 75.9% execution accuracy on the full Spider dev set** (1034
+questions, `gpt-4o-mini`, temperature 0), across three measured stages.
+
 | configuration | tuning slice (200) | full dev (1034) | vs. previous | McNemar p |
 |---------------|--------------------|-----------------|--------------|-----------|
 | baseline — DDL + question | 74.0% | 72.0% | — | — |
-| + two sentences about columns | 76.0% | **74.2%** | **+2.2%** | **0.010** |
+| + two sentences about columns | 76.0% | 74.2% | +2.2% | 0.010 |
+| + sample rows & column values | 78.0% | **75.9%** | +1.7% | 0.054 |
+
+Cumulative: **72.0% to 75.9%**, p < 0.001. The last row does not clear
+significance on its own and costs 2.7x the prompt tokens - kept because all
+three of its variants point the same way, but flagged as the first thing to cut
+if prompt size mattered.
 
 Differences are tested with a paired **McNemar exact test**, not by comparing
 two accuracy figures — both runs answer the same questions, so the informative
 unit is the 73 they disagree on, not the 961 they don't.
 
-The gain is real but uneven: of the two sentences added, one took its target
-error from 46 questions to 19 and the other took its target from 51 to 44.
-**44 questions still return exactly the right data in the wrong column order** —
-measured exactly, by trying every reordering. Stating a convention in prose did
-not teach it.
+Every row also carries the count of the error it was aimed at, not just the
+headline — which is how it is visible that one of run 2's two sentences
+recovered 59% of its target category and the other recovered 14%, and that
+run 3's longer prompt made both of them measurably weaker.
 
-`gpt-4o-mini`, temperature 0. Where the 290 failures go:
+**46 questions still return exactly the right data in the wrong column order.**
+That is measured exactly, by trying every reordering of the predicted columns,
+not projected from a sample. Stating the convention in prose did not teach it,
+and it is the specific thing the next stage has to beat.
+
+Where the baseline's 290 failures went, by the evaluator's own reason codes:
 
 | reason | count |
 |--------|-------|
@@ -82,9 +95,13 @@ not teach it.
 | invalid SQL | 11 |
 | right rows, wrong order | 1 |
 
-Full breakdown, per-database accuracy and the per-question records are in
-[results.md](results.md). Sample values, retrieved few-shot examples and the
-repair loop aren't wired up yet — those rows fill in as they land.
+Those codes are not an error analysis on their own — `value_mismatch` alone
+covers six different mistakes with six different fixes. The hand-labelled
+breakdown below is what splits them.
+
+Full per-stage numbers, per-database accuracy and the per-question records are
+in [results.md](results.md). Retrieved few-shot examples and the repair loop
+aren't wired up yet — those rows fill in as they land.
 
 ## What the failures actually are
 
@@ -114,7 +131,8 @@ Three things that came out of it:
 - **The ceiling is not 100%.** 16% of sampled failures aren't the model's
   mistake — "How many states are there?" has a gold query that counts area-code
   rows and answers 305, where the prediction's `COUNT(DISTINCT state)` answers
-  51. That is ~46 of the 1034 dev questions, putting the ceiling near 95%.
+  51. That is ~46 of the 1034 dev questions — a soft ceiling near 95%, since
+  scoring them needs an answer the question does not support.
 
 One pattern from this sample did not survive checking: gold looked
 aggregate-first in all twelve column-order failures, but across the 7000

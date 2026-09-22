@@ -452,3 +452,72 @@ Confusing "share of failures" with "share of the whole" made the remaining
 headroom look like 4 points when it is more than 20. Published Spider dev
 results with strong models sit around 84-86%, which is the number worth
 measuring against.
+
+### Which columns are worth showing values for, measured
+
+Listing a column's values only teaches the model something when the values are
+a closed set. Rather than guess a threshold, I counted the 241 text columns
+across the 20 dev databases:
+
+    distinct values     share of text columns
+    1-5                        29.5%
+    6-20                       44.8%      <- 74.3% together
+    21-100                      8.7%
+    >100                        6.6%
+
+Three quarters of text columns hold 20 or fewer distinct values, and those are
+exactly the columns a WHERE clause compares a literal against: continents,
+country codes, template types, sexes. The 6.6% above 100 are surnames and
+addresses, where five examples say nothing about the sixth and only cost
+tokens. Threshold: enumerate at 20 or fewer, show at most 10.
+
+Two specific baseline failures this answers outright:
+
+    car_1.car_makers.Country   holds '1','2','3'...   (ids, not country names)
+    Ref_Template_Types.Code    holds 'AD','BK','PPT'  ('PPT' is a code)
+
+The model had written `WHERE Country = 'France'` against the first and looked
+'PPT' up as a description against the second.
+
+### repr(), not str(), for values in a prompt
+
+`flight_2.airports.Country` holds `'United States '` - with a trailing space.
+Rendered with `str()` the model sees `United States`, writes the obvious
+predicate, matches zero rows, and has no way to find out why. `repr()` keeps
+the quotes and makes whitespace visible.
+
+Small thing, and the sort of thing that only shows up if you read the data
+rather than the schema.
+
+### A longer prompt made the earlier instructions worse
+
+Run 3 tripled the prompt. Accuracy went up, but run 2's two sentences got
+measurably weaker:
+
+                              run 2   run 3
+    column-permutation fails     44      46
+    wrong-column-count fails     19      26
+    hand-labelled column_order  2/12    1/12
+    hand-labelled extra_column   5/8     4/8
+
+The instructions are byte-identical in both runs. What changed is how much else
+is competing with them - roughly 340 tokens of schema became roughly 955.
+
+So the ablation is not as additive as the table's layout implies. Each row is a
+delta against the row above it, which is the right way to attribute a change,
+but it quietly assumes the earlier changes keep working at full strength. Here
+one measurably did not, and the only reason I can say so is that the target
+error of each row is counted separately from the headline.
+
+### A row that does not clear significance, kept anyway
+
+Run 3 is +1.7 points at McNemar p = 0.054, for 2.7x the prompt tokens. That is
+suggestive, not established.
+
+Kept, for two reasons: all three variants of it move the same direction, and
+the cumulative gain from baseline is unambiguous (+4.0 points, p < 0.001). But
+the row says p = 0.054 and 2.7x cost in the table, because a reader deciding
+whether to adopt this needs both numbers, and in a system where prompt size
+drives latency and bill it is the first thing to cut.
+
+Deleting a marginal row would make the table look better and be worth less.

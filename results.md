@@ -61,7 +61,11 @@ full set, and scores 74.0% — a 2.0-point gap instead of 7.5.
 | # | configuration | tuning slice | full dev | vs. previous | McNemar p | calls / q | cost |
 |---|---------------|--------------|----------|--------------|-----------|-----------|------|
 | 1 | baseline — DDL + question | 74.0% | 72.0% (744/1034) | — | — | 1.0 | $0.062 |
-| 2 | + column instructions | 76.0% | **74.2%** (767/1034) | **+2.2%** | **0.010** | 1.0 | $0.064 |
+| 2 | + column instructions | 76.0% | 74.2% (767/1034) | +2.2% | 0.010 | 1.0 | $0.064 |
+| 3 | + sample rows & column values | 78.0% | **75.9%** (785/1034) | +1.7% | 0.054 | 1.0 | $0.171 |
+
+Cumulative, baseline to run 3: **+4.0 points** (72.0% to 75.9%), McNemar
+p < 0.001, 70 questions fixed against 29 broken.
 
 Per-question records: [`results/baseline_full.jsonl`](results/baseline_full.jsonl).
 Re-runs are free and byte-identical — `--offline` serves the whole run from the
@@ -189,6 +193,72 @@ columns, the model narrowed the FROM clause with them. These 8 are exactly what
 the execute-and-repair loop should recover, which makes run 2 a reason to expect
 more from run 5 than its own error category suggests.
 
+### Run 3 - showing the model what is in the columns
+
+Targets `wrong_value` (12% of failures) and `wrong_column` (10%): a literal in
+a WHERE clause that does not match what the column holds, and picking the
+column that sounds right over the one that holds the value. Two additions,
+appended to each CREATE TABLE as SQL comments:
+
+    -- 3 example row(s):
+    --   Id | Maker | FullName | Country
+    --   1 | 'amc' | 'American Motor Company' | '1'
+    -- Country holds: '1', '2', '3', '4', '5', '6', '7', '8'
+
+That block alone answers two baseline failures: the model wrote
+`WHERE Country = 'France'` against a column of country ids, and matched
+`Maker` ('amc') against a full company name that lives in `FullName`.
+
+**Values are only listed for low-cardinality columns.** The threshold is
+measured, not guessed: across the 241 text columns in the 20 dev databases,
+74% have 20 or fewer distinct values - continents, country codes, template
+types, sexes - and those are exactly what a WHERE clause compares against. The
+6.6% with more than 100 distinct values are names and addresses, where five
+examples say nothing about the sixth. Cap is 20 distinct, 10 shown.
+
+Values are rendered with `repr()`, not `str()`. `flight_2.airports.Country`
+holds `'United States '` with a trailing space; a model that cannot see the
+space writes a predicate that matches nothing and never finds out why.
+
+| configuration | tuning slice | full dev | vs. run 2 | McNemar p | avg prompt | cost |
+|---------------|--------------|----------|-----------|-----------|------------|------|
+| run 2 | 76.0% | 74.2% | - | - | 338 tok | $0.064 |
+| + sample rows | - | 75.2% | +1.1% | 0.242 | 653 tok | $0.150 |
+| + column values | - | 75.1% | +1.0% | 0.260 | 640 tok | $0.137 |
+| + both | 78.0% | **75.9%** | **+1.7%** | **0.054** | 955 tok | $0.171 |
+
+**This row does not clear significance.** +1.7 points at p = 0.054 is
+suggestive, not established, and it costs **2.7x the prompt tokens**. All three
+variants point the same way, and the cumulative gain from baseline is solid
+(+4.0 points, p < 0.001), which is why the row is kept - but in a system where
+prompt size drives latency and cost, this is the first row to cut, and the
+table should say so.
+
+Closing the loop with the error analysis - of the 50 hand-labelled failures,
+how many each run now answers correctly:
+
+| hand label | n | baseline | run 2 | run 3 |
+|------------|---|----------|-------|-------|
+| column_order | 12 | 0 | 2 | **1** |
+| extra_column | 8 | 0 | 5 | **4** |
+| gold_debatable | 7 | 0 | 0 | 1 |
+| wrong_value | 6 | 0 | 1 | **3** |
+| wrong_column | 5 | 0 | 2 | **2** |
+| query_logic | 4 | 0 | 0 | 0 |
+| wrong_join | 3 | 0 | 1 | 2 |
+| distinct | 2 | 0 | 2 | 2 |
+
+`wrong_value` moved, which is the mechanism working: 1 of 6 to 3 of 6.
+`wrong_column` did not move at all. `query_logic` has not moved since the
+baseline and will not until something samples more than one candidate.
+
+**The interesting number is the one that went backwards.** Run 2's categories
+lost ground: `column_order` from 2 to 1, `extra_column` from 5 to 4. The exact
+counters agree - column-permutation failures went from 44 to 46, and
+wrong-column-count failures from 19 to 26. Tripling the prompt made run 2's two
+sentences measurably less effective. The instructions did not change; what
+changed is how much else is competing with them.
+
 ---
 
 ## Error analysis
@@ -265,8 +335,10 @@ gold is the questionable one:
   selects name and date.
 
 If that rate holds across all 290 failures, about **46 questions (4.5% of the
-dev set) cannot be answered correctly**, putting the realistic ceiling near
-**95%** rather than 100%. For scale, published results on Spider dev with strong
-models and specialised pipelines land around 84-86%, so the headroom above the
-72% baseline is real and large. Worth stating before reporting any improvement
-against it.
+dev set)** can only be scored correct by reproducing an answer that does not
+follow from the question — counting area-code rows when asked for states, and
+so on. That is a *soft* ceiling near **95%**, not a hard one: a system tuned on
+Spider's training split can learn these idiosyncrasies and clear it, which is
+part of why published results with strong models and specialised pipelines
+land around 84-86%. Either way the headroom above the 72% baseline is real and
+large, and it is worth stating before reporting any improvement against it.
