@@ -304,3 +304,53 @@ remember.
 Caught by comparing the slice against the rest of the set rather than by
 thinking about it in advance. Worth doing for any held-out split whose ordering
 you did not choose yourself.
+
+### I read twelve failures, found a pattern, and the pattern was not there
+
+The biggest error category is column order: the model returns the right rows
+with the columns in a different order from gold. Across the twelve I had read,
+gold put the aggregate first every single time —
+
+    Q:    How many cartoons did each director create?
+    gold: SELECT count(*), Directed_by FROM cartoon GROUP BY Directed_by
+    pred: SELECT Directed_by, COUNT(*) FROM Cartoon GROUP BY Directed_by
+
+— so the obvious conclusion was that Spider has an aggregate-first convention
+and few-shot examples would teach it. I checked that against all 7000 training
+queries before writing it down:
+
+    two-column SELECTs with exactly one aggregate: 633
+      aggregate first   199  (31.4%)
+      group key first   434  (68.6%)
+
+The opposite. There is no aggregate-first convention; if anything the
+convention runs the other way.
+
+The mistake was reading a pattern off a sample that is *conditioned on
+disagreement*. Those twelve failures are exactly the questions where the model
+— which defaults to group-key-first — disagreed with gold. Gold being
+aggregate-first in all of them is guaranteed by how they were selected, and
+says nothing about the population. Any error sample has this property: it is
+the set of cases where two things differed, so it over-represents whatever
+direction the difference runs in.
+
+What does hold, tested the same way: gold's column order follows the order the
+question names things in **73.8%** of decidable training cases. So the fix is an
+instruction — "return the columns in the order the question mentions them" —
+and it has a measurable ceiling of about three quarters of the category rather
+than all of it. That is a much less exciting claim than the first one, and it
+is the one supported by the data.
+
+Rule I am keeping: a pattern noticed in a hand-read sample is a hypothesis.
+Test it against the full data before it is allowed to justify a change.
+
+### The evaluator's error codes are not an error analysis
+
+`value_mismatch` is 80% of the baseline's machine-assigned failure reasons. It
+turned out to cover six hand categories with six different fixes — a mis-cased
+string literal, a wrong join path, an inverted negation, a missing DISTINCT, a
+column-order difference, and a case where Spider's own answer is wrong.
+
+Grouping by error code and calling it analysis would have produced one bucket
+labelled "the values were different", which is true and useless. The fifty
+hand labels are what turn 290 failures into a list of things to build.

@@ -109,4 +109,77 @@ were exercised on this run.
 
 ## Error analysis
 
-_Next: hand-classify 50 of the 290 failures._
+50 of the 290 baseline failures, sampled proportionally across all 20 databases
+and classified **by hand** — question, both queries and both result sets read
+one at a time. Labels live in [`eval/error_labels.json`](eval/error_labels.json),
+one primary cause each with a note naming the specific mistake; the sample with
+its result previews is in [`results/error_sample.md`](results/error_sample.md).
+`scripts/06_error_report.py` aggregates them.
+
+| category | n | % | what it is evidence for |
+|----------|---|---|-------------------------|
+| column_order | 12 | 24% | instruction: order columns as the question names them |
+| extra_column | 8 | 16% | instruction: return only the columns asked for |
+| gold_debatable | 7 | 14% | nothing — the benchmark's answer is the questionable one |
+| wrong_value | 6 | 12% | sample values in the schema prompt |
+| wrong_column | 5 | 10% | sample values in the schema prompt |
+| query_logic | 4 | 8% | self-consistency |
+| wrong_join | 3 | 6% | foreign keys stated explicitly in the prompt |
+| distinct | 2 | 4% | retrieved few-shot examples |
+| ambiguous_question | 1 | 2% | nothing — the question has no single answer |
+| sql_error | 1 | 2% | execute-and-repair loop |
+| aggregation | 1 | 2% | retrieved few-shot examples |
+
+**42 of 50 (84%) are the model's mistake. 8 (16%) are not.**
+
+### Three things this changes
+
+**1. Forty per cent of failures are about which columns come back, not about
+understanding the question.** `column_order` and `extra_column` together are
+20 of 50. In almost all of them the model found the right rows and then
+returned them in a different order, or returned an extra count column nobody
+asked for:
+
+    Q:    How many cartoons did each director create?
+    gold: SELECT count(*), Directed_by FROM cartoon GROUP BY Directed_by
+    pred: SELECT Directed_by, COUNT(*) FROM Cartoon GROUP BY Directed_by
+
+Same three rows, same numbers, scored wrong. Projected onto all 290 failures
+that is ~116 questions, and the fix is two sentences in the prompt, not a
+retrieval system.
+
+**2. The evaluator's own reason codes cannot tell you what to fix.**
+`value_mismatch` accounts for 80% of the machine-assigned failure reasons, and
+it turns out to cover six different hand categories with six different fixes:
+
+| hand label | value_mismatch | column_count_mismatch | exec_error |
+|------------|---------------|----------------------|------------|
+| column_order | 12 | | |
+| extra_column | | 8 | |
+| gold_debatable | 4 | 3 | |
+| wrong_value | 6 | | |
+| wrong_column | 5 | | |
+| query_logic | 4 | | |
+| wrong_join | 3 | | |
+| distinct | 2 | | |
+| sql_error | | | 1 |
+
+This is the argument for reading fifty failures by hand rather than grouping by
+error code and calling it analysis.
+
+**3. There is a ceiling, and it is not 100%.** 16% of the sampled failures are
+not the model's fault — either the question has no single answer, or Spider's
+gold is the questionable one:
+
+- `voter_1#687` — "How many states are there?" Gold counts area-code rows and
+  answers **305**. The prediction's `COUNT(DISTINCT state)` answers **51**.
+- `course_teach#387` — gold compares against a lowercased literal that matches
+  nothing, so it returns all 7 teachers including the one the question excludes.
+- `world_1#811` — gold's own `continent = "north america"` matches nothing on
+  this database, so both aggregates come back `NULL`.
+- `battle_death#493` — "List the name, date and result of each battle." Gold
+  selects name and date.
+
+If 16% of the remaining 290 failures are like this, the realistic ceiling for
+this benchmark is around **76%**, not 100%. Worth stating before reporting any
+improvement against it.

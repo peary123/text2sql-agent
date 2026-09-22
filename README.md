@@ -75,6 +75,43 @@ Full breakdown, per-database accuracy and the per-question records are in
 [results.md](results.md). Sample values, retrieved few-shot examples and the
 repair loop aren't wired up yet — those rows fill in as they land.
 
+## What the failures actually are
+
+50 of the 290 failures, sampled across all 20 databases and classified by hand —
+question, both queries and both result sets, read one at a time.
+
+| category | n | fix it points to |
+|----------|---|------------------|
+| wrong column order | 12 | instruction: order columns as the question names them |
+| extra column returned | 8 | instruction: return only the columns asked for |
+| **gold is questionable** | **7** | **nothing — the benchmark is wrong** |
+| literal doesn't match stored value | 6 | sample values in the prompt |
+| wrong column chosen | 5 | sample values in the prompt |
+| query logic | 4 | self-consistency |
+| wrong join path | 3 | foreign keys stated in the prompt |
+| missing DISTINCT | 2 | retrieved few-shot examples |
+| other | 3 | |
+
+Three things that came out of it:
+
+- **40% of failures are about which columns come back**, not about
+  understanding the question. `SELECT count(*), director` vs
+  `SELECT director, COUNT(*)` — same rows, same numbers, scored wrong.
+- **The evaluator's own reason codes can't tell you what to fix.**
+  `value_mismatch` is 80% of them and covers six hand categories with six
+  different fixes.
+- **The ceiling is not 100%.** 16% of sampled failures aren't the model's
+  mistake — "How many states are there?" has a gold query that counts area-code
+  rows and answers 305, where the prediction's `COUNT(DISTINCT state)` answers
+  51. Realistic ceiling here is around 76%.
+
+One pattern from this sample did not survive checking: gold looked
+aggregate-first in all twelve column-order failures, but across the 7000
+training queries it is group-key-first 69% of the time. The sample is
+conditioned on disagreement, so it could only ever look that way
+([NOTES.md](NOTES.md)). What does hold is that gold follows the question's word
+order 74% of the time — which is what the instruction fix is based on.
+
 Prompt iteration happens on a 200-question stratified slice covering all 20
 databases; the full dev set is run once per configuration after that
 configuration is frozen, so the headline number is not tuned against.
