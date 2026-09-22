@@ -49,6 +49,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--labels", default="eval/error_labels.json")
     parser.add_argument("--sample", default="results/error_sample.jsonl")
+    parser.add_argument(
+        "--against",
+        nargs="*",
+        default=[],
+        metavar="RUN.jsonl",
+        help="later runs to check the labelled failures against, closing the "
+             "loop between the error analysis and the ablation",
+    )
     args = parser.parse_args()
 
     raw = json.loads((ROOT / args.labels).read_text(encoding="utf-8"))
@@ -98,7 +106,41 @@ def main() -> int:
     print(f"\nprojected onto all {n_failures} baseline failures:")
     for label, n in counts.most_common(5):
         print(f"  {label:<20} ~{round(n / total * n_failures):>3} questions")
+
+    if args.against:
+        _closed_loop(labels, counts, args.against)
     return 0
+
+
+def _closed_loop(labels: dict, counts: Counter, runs: list[str]) -> None:
+    """How many of each hand-labelled failure does each later run now get right?
+
+    An ablation says a change helped. This says whether it helped *the thing it
+    was aimed at*, which is the difference between a mechanism and a
+    coincidence. The counts are small -- a category may hold four questions --
+    so the direction is the signal, not the decimal.
+    """
+    loaded: dict[str, dict] = {}
+    for path in runs:
+        name = Path(path).stem.replace("_full", "").replace("base+", "")
+        loaded[name] = {
+            json.loads(line)["qid"]: json.loads(line)
+            for line in (ROOT / path).open(encoding="utf-8")
+        }
+
+    print("\nof the hand-labelled failures, how many each run now gets right:\n")
+    header = "".join(f"{name[-22:]:>24}" for name in loaded)
+    print(f"  {'category':<20} {'n':>3}{header}")
+    for label, n in counts.most_common():
+        cells = ""
+        for records in loaded.values():
+            fixed = sum(
+                records[qid]["correct"]
+                for qid, (lab, _) in labels.items()
+                if lab == label and qid in records
+            )
+            cells += f"{f'{fixed}/{n}':>24}"
+        print(f"  {label:<20} {n:>3}{cells}")
 
 
 if __name__ == "__main__":
