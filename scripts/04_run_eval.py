@@ -98,6 +98,8 @@ def main() -> int:
                         help="show a few real rows under each CREATE TABLE")
     parser.add_argument("--column-values", action="store_true",
                         help="list the values of low-cardinality text columns")
+    parser.add_argument("--few-shot", type=int, default=0, metavar="K",
+                        help="retrieve K question/SQL pairs from the train split")
     parser.add_argument("--tag", default=None, help="override the output file name")
     args = parser.parse_args()
 
@@ -106,6 +108,7 @@ def main() -> int:
         column_order=args.column_order,
         sample_rows=args.sample_rows,
         column_values=args.column_values,
+        few_shot=args.few_shot,
     )
     tag = args.tag or config.tag
 

@@ -50,6 +50,7 @@ class PromptConfig:
     column_order: bool = False
     sample_rows: bool = False
     column_values: bool = False
+    few_shot: int = 0  # number of retrieved question/SQL pairs; 0 is off
 
     @property
     def tag(self) -> str:
@@ -61,6 +62,7 @@ class PromptConfig:
                 ("colorder", self.column_order),
                 ("rows", self.sample_rows),
                 ("values", self.column_values),
+                (f"fs{self.few_shot}", self.few_shot > 0),
             )
             if on
         ]
@@ -164,14 +166,46 @@ def render_schema(db_id: str, config: PromptConfig = PromptConfig()) -> str:
     return "\n\n".join(blocks)
 
 
+def render_few_shot(question: str, k: int) -> str:
+    """Retrieved question/SQL pairs, as SQL comments.
+
+    Labelled as coming from other databases because they do: Spider's train and
+    dev splits share no schema, so a table name here is not one the model can
+    reuse. Saying so is the difference between an example and a trap.
+
+    They go before the schema so that the schema and the question stay adjacent
+    -- the examples are context for *how* to answer, the schema is what to
+    answer against.
+    """
+    if k <= 0:
+        return ""
+    from .retrieve import default_index  # imported lazily: sklearn is slow to load
+
+    examples = default_index().search(question, k=k)
+    if not examples:
+        return ""
+    lines = [
+        f"-- {len(examples)} example question/query pairs from other databases,",
+        "-- shown for the style of the mapping, not for their table names:",
+    ]
+    for example in examples:
+        lines.append(f"--   Q: {example.question}")
+        lines.append(f"--   A: {' '.join(example.gold_sql.split())}")
+    return "\n".join(lines)
+
+
 def build_prompt(db_id: str, question: str, config: PromptConfig = PromptConfig()) -> str:
-    """The user message: schema, then question."""
-    return (
-        f"{render_schema(db_id, config)}\n\n"
-        f"-- Using the schema above, write a SQLite query for this question.\n"
-        f"-- Question: {question}\n"
-        f"-- Query:"
-    )
+    """The user message: retrieved examples, schema, then question."""
+    blocks = [
+        render_few_shot(question, config.few_shot),
+        render_schema(db_id, config),
+        (
+            "-- Using the schema above, write a SQLite query for this question.\n"
+            f"-- Question: {question}\n"
+            "-- Query:"
+        ),
+    ]
+    return "\n\n".join(b for b in blocks if b)
 
 
 _FENCE = re.compile(r"```(?:sql|sqlite)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
