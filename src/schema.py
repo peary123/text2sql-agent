@@ -152,3 +152,74 @@ def _normalise_ddl(ddl: str) -> str:
 
 def n_columns(db_id: str) -> int:
     return len(load_schema(db_id).columns)
+
+
+# Enumerating a column's values only teaches the model something when there are
+# few enough of them to be a closed set. Measured across the 20 dev databases:
+# 74% of text columns have 20 or fewer distinct values -- continents, country
+# codes, template types, sexes -- and those are exactly the columns a WHERE
+# clause compares a literal against. The remaining columns are names and
+# addresses, where five examples say nothing about the sixth.
+MAX_DISTINCT_TO_ENUMERATE = 20
+MAX_VALUES_SHOWN = 10
+MAX_VALUE_LENGTH = 40
+SAMPLE_ROWS = 3
+
+
+@functools.lru_cache(maxsize=512)
+def sample_rows(db_id: str, table: str, limit: int = SAMPLE_ROWS) -> tuple[list[str], list[tuple]]:
+    """A few real rows from `table`, as (column names, rows)."""
+    conn = _connect(config.db_path(db_id))
+    try:
+        cur = conn.execute(f'SELECT * FROM "{table}" LIMIT {int(limit)}')
+        columns = [d[0] for d in cur.description] if cur.description else []
+        return columns, [tuple(r) for r in cur.fetchall()]
+    except sqlite3.Error:
+        # A table we cannot read should not take the whole prompt down with it.
+        return [], []
+    finally:
+        conn.close()
+
+
+@functools.lru_cache(maxsize=2048)
+def enumerated_values(db_id: str, table: str, column: str) -> tuple[int, tuple]:
+    """(distinct count, values to show) for a low-cardinality text column.
+
+    Returns an empty tuple of values when the column has too many distinct
+    values to be worth listing, so the caller can tell "nothing to show" from
+    "genuinely empty".
+    """
+    conn = _connect(config.db_path(db_id))
+    try:
+        n = conn.execute(
+            f'SELECT COUNT(DISTINCT "{column}") FROM "{table}"'
+        ).fetchone()[0]
+        if not n or n > MAX_DISTINCT_TO_ENUMERATE:
+            return int(n or 0), ()
+        rows = conn.execute(
+            f'SELECT DISTINCT "{column}" FROM "{table}" '
+            f'WHERE "{column}" IS NOT NULL LIMIT {MAX_VALUES_SHOWN}'
+        ).fetchall()
+        return int(n), tuple(r[0] for r in rows)
+    except sqlite3.Error:
+        return 0, ()
+    finally:
+        conn.close()
+
+
+def format_value(value: object) -> str:
+    """Render one cell for the prompt.
+
+    `repr` rather than `str`, deliberately: it keeps the quotes and makes
+    whitespace visible. `flight_2.airports.Country` holds `'United States '`
+    with a trailing space, and a model that cannot see that will write a
+    predicate that matches nothing.
+    """
+    if value is None:
+        return "NULL"
+    if isinstance(value, (int, float)):
+        return str(value)
+    text = str(value)
+    if len(text) > MAX_VALUE_LENGTH:
+        text = text[: MAX_VALUE_LENGTH - 1] + "…"
+    return repr(text)
