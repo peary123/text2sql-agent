@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 from src.evaluate import (  # noqa: E402
     compare_results,
     has_top_level_order_by,
+    is_column_permutation,
     normalize_value,
     score,
 )
@@ -157,6 +158,40 @@ def test_generated_write_statement_is_wrong_not_executed() -> None:
     db = _fixture_db()
     j = score(db, "SELECT name FROM city", "DROP TABLE city")
     assert not j.correct and j.reason == "exec_error:rejected"
+
+
+# ------------------------------------------- column-permutation detection
+
+def test_permutation_is_detected() -> None:
+    """Right data, wrong column order -- the one failure we can count exactly."""
+    gold = _result([("Boston", 654), ("Lyon", 513)])
+    pred = _result([(654, "Boston"), (513, "Lyon")])
+    assert not compare_results(gold, pred, order_matters=False).correct
+    assert is_column_permutation(gold, pred, order_matters=False)
+
+
+def test_wrong_data_is_not_a_permutation() -> None:
+    gold = _result([("Boston", 654)])
+    pred = _result([("Kyoto", 1463)])
+    assert not is_column_permutation(gold, pred, order_matters=False)
+
+
+def test_single_column_cannot_be_permuted() -> None:
+    gold, pred = _result([("a",)]), _result([("a",)])
+    assert not is_column_permutation(gold, pred, order_matters=False)
+
+
+def test_permutation_flag_is_set_on_failures_only() -> None:
+    db = _fixture_db()
+    gold = "SELECT name, pop FROM city"
+    permuted = score(db, gold, "SELECT pop, name FROM city")
+    assert not permuted.correct and permuted.column_permutation
+
+    right = score(db, gold, "SELECT name, pop FROM city")
+    assert right.correct and not right.column_permutation
+
+    unrelated = score(db, gold, "SELECT name, country FROM city")
+    assert not unrelated.correct and not unrelated.column_permutation
 
 
 if __name__ == "__main__":
