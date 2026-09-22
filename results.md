@@ -62,10 +62,22 @@ full set, and scores 74.0% — a 2.0-point gap instead of 7.5.
 |---|---------------|--------------|----------|--------------|-----------|-----------|------|
 | 1 | baseline — DDL + question | 74.0% | 72.0% (744/1034) | — | — | 1.0 | $0.062 |
 | 2 | + column instructions | 76.0% | 74.2% (767/1034) | +2.2% | 0.010 | 1.0 | $0.064 |
-| 3 | + sample rows & column values | 78.0% | **75.9%** (785/1034) | +1.7% | 0.054 | 1.0 | $0.171 |
+| 3 | + sample rows & column values | 78.0% | 75.9% (785/1034) | +1.7% | 0.054 | 1.0 | $0.171 |
+| 4 | + 3 retrieved examples | - | **76.8%** (794/1034) | +0.9% | 0.467 | 1.0 | $0.239 |
 
-Cumulative, baseline to run 3: **+4.0 points** (72.0% to 75.9%), McNemar
-p < 0.001, 70 questions fixed against 29 broken.
+Cumulative, baseline to run 4: **+4.8 points** (72.0% to 76.8%), McNemar
+p < 0.001.
+
+How each error class moved across the stages - the most useful table here,
+because the headline hides three trends running in different directions:
+
+| configuration | accuracy | invalid SQL | wrong values | wrong column count | column permutation |
+|---------------|----------|-------------|--------------|--------------------|--------------------|
+| baseline | 72.0% | 11 | 232 | 46 | 51 |
+| run 2 | 74.2% | 19 | 227 | 19 | 44 |
+| run 3 | 75.9% | 19 | 202 | 26 | 46 |
+| run 4 (k=3) | 76.8% | **33** | 184 | 22 | 45 |
+| run 4 (k=5) | 77.8% | 33 | 177 | 20 | 45 |
 
 Per-question records: [`results/baseline_full.jsonl`](results/baseline_full.jsonl).
 Re-runs are free and byte-identical — `--offline` serves the whole run from the
@@ -258,6 +270,77 @@ counters agree - column-permutation failures went from 44 to 46, and
 wrong-column-count failures from 19 to 26. Tripling the prompt made run 2's two
 sentences measurably less effective. The instructions did not change; what
 changed is how much else is competing with them.
+
+### Run 4 - retrieved few-shot examples
+
+Three question/SQL pairs retrieved from the 7000-question training split and
+put in the prompt as comments.
+
+**What retrieval can and cannot carry here.** Spider's train and dev splits
+share no databases - 140 against 20, no overlap - so a retrieved example's
+table names are useless for the question being answered. All it can transfer is
+the mapping from a question's shape to a query's shape. That decided the
+retriever: TF-IDF over word 1- and 2-grams, **stop words deliberately kept**,
+because "how many", "for each" and "list the" are the signal and the content
+words - singer, country, stadium - are noise when the schema is different.
+
+    Q: How many cartoons did each director create?
+    -> How many movie reviews does each director get?
+       SELECT count(*) , T1.director FROM Movie AS T1 JOIN ... GROUP BY T1.director
+
+TF-IDF rather than embeddings on purpose: a few lines, no model to download, no
+API call, and exactly reproducible. If it becomes the bottleneck that is a
+measured reason to replace it, which is better than starting with the heavier
+thing.
+
+| configuration | full dev | vs. run 3 | McNemar p | cost |
+|---------------|----------|-----------|-----------|------|
+| run 3 | 75.9% | - | - | $0.171 |
+| + 3 examples | **76.8%** | +0.9% | 0.467 | $0.239 |
+| + 5 examples | 77.8% | +1.8% | 0.113 | $0.253 |
+
+**k = 3 was declared before the runs, and k = 5 scored a point higher.** The
+paired test between them puts that gap at p = 0.260 - no evidence either is
+better. So k = 3 is carried forward: it is the pre-declared configuration and
+it is cheaper, and where the accuracy difference is not established the cheaper
+one wins. Reporting 77.8% instead would be picking the larger of two numbers
+the data cannot separate, which is exactly the mistake the tuning slice taught
+in run 2.
+
+**The acceptance criterion for this stage failed.** It was set in advance:
+46 questions still returned exactly the right data in the wrong column order,
+instructions had not fixed it, and few-shot examples *demonstrate* a convention
+instead of describing it. Result: **46 to 45**. One question.
+
+Across four stages and three different mechanisms, column permutations have
+gone 51 -> 44 -> 46 -> 45. This error class does not appear to be reachable
+from the prompt at all, and the honest conclusion is that saying so is worth
+more than another attempt at it.
+
+The gain came from elsewhere: wrong values 202 to 184, wrong column count 26
+to 22. And the churn is large - 65 questions fixed, 56 broken, for a net 9.
+
+**Invalid SQL rose from 19 to 33.** 21 of the 25 new failures are `no such
+column`, and they are all the same mistake:
+
+    SELECT Model FROM cars_data     -- Model is on car_names, which is not joined
+    SELECT T2.LName FROM Has_Pet AS T1 JOIN Pets AS T2   -- LName is on Student
+
+The retrieved examples are often single-table queries and that shape transfers.
+This is the *same* mechanism as run 2's breakage, where telling the model to
+return fewer columns made it narrow the FROM clause with them: anything that
+pushes toward simpler output costs joins.
+
+One hypothesis this ruled out: the model is **not** copying table names from
+the examples. Only 2 of the 25 new failures reference an identifier that
+appears in a retrieved example but not in the target schema, and both are false
+positives. The examples are labelled in the prompt as coming from other
+databases, and that appears to have held.
+
+**These 33 invalid queries are the input to the repair loop.** Every one fails
+with a SQLite error naming the missing column. The error analysis gave the
+repair loop a 2% share; four stages of prompt work have grown its addressable
+set from 11 questions to 33.
 
 ---
 

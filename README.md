@@ -65,9 +65,10 @@ questions, `gpt-4o-mini`, temperature 0), across three measured stages.
 |---------------|--------------------|-----------------|--------------|-----------|
 | baseline — DDL + question | 74.0% | 72.0% | — | — |
 | + two sentences about columns | 76.0% | 74.2% | +2.2% | 0.010 |
-| + sample rows & column values | 78.0% | **75.9%** | +1.7% | 0.054 |
+| + sample rows & column values | 78.0% | 75.9% | +1.7% | 0.054 |
+| + 3 retrieved examples | - | **76.8%** | +0.9% | 0.467 |
 
-Cumulative: **72.0% to 75.9%**, p < 0.001. The last row does not clear
+Cumulative: **72.0% to 76.8%**, p < 0.001. The last row does not clear
 significance on its own and costs 2.7x the prompt tokens - kept because all
 three of its variants point the same way, but flagged as the first thing to cut
 if prompt size mattered.
@@ -81,10 +82,12 @@ headline — which is how it is visible that one of run 2's two sentences
 recovered 59% of its target category and the other recovered 14%, and that
 run 3's longer prompt made both of them measurably weaker.
 
-**46 questions still return exactly the right data in the wrong column order.**
-That is measured exactly, by trying every reordering of the predicted columns,
-not projected from a sample. Stating the convention in prose did not teach it,
-and it is the specific thing the next stage has to beat.
+**45 questions still return exactly the right data in the wrong column order.**
+Measured exactly, by trying every reordering of the predicted columns. Across
+four stages that count has gone 51, 44, 46, 45: neither stating the convention
+nor demonstrating it with retrieved examples moved it. On the evidence this
+error class is not reachable from the prompt, and saying so is worth more than
+a fifth attempt at it.
 
 Where the baseline's 290 failures went, by the evaluator's own reason codes:
 

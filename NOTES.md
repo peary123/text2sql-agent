@@ -521,3 +521,73 @@ whether to adopt this needs both numbers, and in a system where prompt size
 drives latency and bill it is the first thing to cut.
 
 Deleting a marginal row would make the table look better and be worth less.
+
+### Stop words are the signal when the schemas do not match
+
+Spider's train and dev splits share no databases: 140 against 20, no overlap.
+A retrieved example's table names are therefore useless for the question being
+answered - the model cannot reuse them. The only thing an example can carry
+across is the mapping from a question's shape to a query's shape.
+
+That inverts the usual retrieval setup. Standard text retrieval strips "how
+many", "for each", "list the" as stop words and keeps the content words. Here
+the content words - singer, country, stadium - are the noise, because the
+schema behind them is not the one being queried, and the stop words are the
+whole signal. So: word 1- and 2-grams, `stop_words=None`.
+
+    Q: How many cartoons did each director create?
+    -> How many movie reviews does each director get?
+       SELECT count(*) , T1.director ... GROUP BY T1.director
+
+The retrieved example demonstrates the column order that gold uses. It just
+turned out not to be enough - see below.
+
+### The acceptance criterion failed, and that is the result
+
+Before run 4 I wrote down what would count: 46 questions returned exactly the
+right data in the wrong column order, instructions had not fixed it, and
+few-shot examples demonstrate a convention rather than describing it. If
+demonstration works, that number should fall.
+
+    51 -> 44 -> 46 -> 45
+    baseline  run 2  run 3  run 4
+
+One question, across four stages and three mechanisms. The accuracy still went
+up, so without the per-category counter this stage would have been written up
+as a success for a reason that is not true.
+
+The honest conclusion is that this error class is not reachable from the
+prompt. Column order in Spider follows the question's word order only 74% of
+the time, so there is no rule to state and no consistent convention to
+demonstrate - the retrieved examples themselves disagree with each other,
+because the training data does. Saying that, with the counts behind it, is
+worth more than a fifth attempt.
+
+Setting the criterion in advance is what makes this reportable. Afterwards,
+"+0.9% overall" and "the thing I was aiming at did not move" are equally true,
+and only one of them gets written down if nobody decided beforehand which one
+was the question.
+
+### Everything that simplifies the output costs joins
+
+Invalid SQL across the four stages: 11, 19, 19, 33.
+
+    run 2:  told to return fewer columns
+            SELECT Make, Year FROM cars_data   -- Make is on car_names
+    run 4:  shown mostly single-table examples
+            SELECT Model FROM cars_data        -- Model is on car_names
+
+21 of run 4's 25 new failures are `no such column`, and they are this. Two
+different changes, made for two different reasons, producing the same failure:
+push the model toward simpler output and it drops the join along with the
+complexity.
+
+A hypothesis this ruled out: the model is *not* copying table names from the
+retrieved examples. Only 2 of the 25 reference an identifier present in an
+example but absent from the target schema, and both are false positives. The
+prompt labels the examples as coming from other databases and that held.
+
+Worth noticing the shape of it: four stages of prompt work have grown the
+repair loop's addressable set from 11 questions to 33, all of them failing with
+an explicit SQLite error that names the missing column. The error analysis
+allotted the repair loop 2%. The ablation built it a bigger job than that.
