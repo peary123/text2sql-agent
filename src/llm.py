@@ -213,6 +213,11 @@ class LLMClient:
                 model=hit.get("model", self.model),
                 input_tokens=hit.get("input_tokens", 0),
                 output_tokens=hit.get("output_tokens", 0),
+                # The latency the provider actually took when this response was
+                # first generated. Returning it on a hit is what makes the
+                # latency column of the ablation reproducible from the cache
+                # instead of reading as zero on every re-run.
+                latency_s=hit.get("latency_s", 0.0),
             )
 
         if self.offline:
