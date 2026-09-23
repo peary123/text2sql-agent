@@ -591,3 +591,101 @@ Worth noticing the shape of it: four stages of prompt work have grown the
 repair loop's addressable set from 11 questions to 33, all of them failing with
 an explicit SQLite error that names the missing column. The error analysis
 allotted the repair loop 2%. The ablation built it a bigger job than that.
+
+### The repair loop cannot see the answer key, by construction
+
+The easy way to get a spectacular repair number is to let the loop compare its
+result against gold and retry until they match. That is not a text-to-SQL
+system; it is a search against the answer key.
+
+So the loop's only input is the predicted query's own execution result - did
+SQLite reject it, did it return rows - which is exactly what a deployed system
+would know. `generate_with_repair` has no parameter a gold query could arrive
+through, and `test_repair_loop_cannot_receive_the_gold_query` inspects the
+signatures of every function in the loop to keep it that way. Being careful is
+not a guarantee; an interface that cannot express the mistake is.
+
+Intermediate attempts *are* scored against gold, but only after the loop has
+finished, to measure what it did.
+
+### Why the repair stage broke nothing when every other stage did
+
+    stage       fixed   broken
+    run 2         48      25
+    run 3         48      30
+    run 4         65      56
+    run 5         23       0
+
+Not luck. Each prompt stage changes the input for all 1034 questions, so it
+moves answers in both directions and the table only sees the net. Repair
+touches only a query that has already failed to execute, and a query that fails
+to execute is always scored wrong. It can leave a question wrong or make it
+right. It has no path to making a right answer wrong.
+
+That is the argument for putting a repair loop behind any prompt change: its
+downside is bounded by construction, which none of the prompt changes' are.
+
+### "Why cap repairs at two?" - measured, not asserted
+
+The plan fixed the cap at two, and it is a standard interview question. The
+answer turned out to be that it should be one:
+
+    correct after 0 repairs    0 / 33
+    correct after 1 repair    23 / 33
+    correct after 2 repairs   23 / 33
+
+Only two questions ever reached a second repair. It made both queries valid and
+neither correct. Re-running with a cap of one, entirely from the cache, gives
+the identical 817 correct answers at 1.032 calls per question instead of 1.034.
+
+So the honest version: a cap exists to bound the latency tail, since each
+repair is a full round-trip with the whole prompt. On this benchmark one repair
+captures all of the accuracy. If the error message names the missing column
+and the model still gets it wrong, a second look at the same message rarely
+changes its mind.
+
+### The escape hatch for correct empty answers held
+
+Repairing queries that return no rows was the risky variant: 49 dev gold
+answers are genuinely empty, and "your query returned nothing, fix it" pushes
+the model to change an answer that may be right. The repair prompt allowed for
+that explicitly - if an empty result is genuinely correct, repeat the query
+unchanged.
+
+    first attempt empty and already correct:   41
+      repeated verbatim                        32
+      rewritten, still correct                  9
+      broken                                    0
+
+    first attempt empty and wrong:             13
+      fixed                                     3
+
+The safety worked. The gain did not: +0.3 points, p = 0.250, while p95 latency
+went from 1.10 s to 1.97 s because 54 more questions now make a second
+round-trip. Not adopted - a variant that is safe and nearly useless is still
+nearly useless.
+
+### A prediction of mine that failed
+
+When the baseline never exercised the SQL-extraction fallbacks, I kept them on
+the reasoning that repair prompts would produce "Sure - here's the fix:" in
+front of the SQL. Across all 33 repair responses: 0 markdown fences, 0 leading
+prose. The fallbacks are still tested and still unexercised by this model.
+Writing the prediction down beforehand is the only reason there is anything to
+report here.
+
+### Latency across rows is not a controlled comparison
+
+Latency is the provider's own response time, recorded at generation and
+replayed from the cache, so it reproduces exactly. But:
+
+    baseline   prompt ~340 tokens   p50 0.74 s
+    run 3      prompt ~955 tokens   p50 0.61 s
+
+The shortest prompt has the slowest responses. The rows were generated at
+different times of day, and API load evidently outweighs a 3x difference in
+input length. So the latency column cannot rank configurations. The one
+increment that is controlled is the repair loop's, because its first attempts
+are run 4's cached responses: p95 0.99 s to 1.10 s is the loop and nothing
+else. Serving-latency claims belong to the FastAPI stage, measured under a
+fixed load in one sitting.

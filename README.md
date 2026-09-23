@@ -58,20 +58,32 @@ memory just as well as a slow one does.
 
 ## Results
 
-**72.0% to 75.9% execution accuracy on the full Spider dev set** (1034
-questions, `gpt-4o-mini`, temperature 0), across three measured stages.
+**72.0% to 79.0% execution accuracy on the full Spider dev set** (1034
+questions, `gpt-4o-mini`, temperature 0), across four measured stages.
 
-| configuration | tuning slice (200) | full dev (1034) | vs. previous | McNemar p |
-|---------------|--------------------|-----------------|--------------|-----------|
-| baseline — DDL + question | 74.0% | 72.0% | — | — |
-| + two sentences about columns | 76.0% | 74.2% | +2.2% | 0.010 |
-| + sample rows & column values | 78.0% | 75.9% | +1.7% | 0.054 |
-| + 3 retrieved examples | - | **76.8%** | +0.9% | 0.467 |
+| configuration | full dev (1034) | vs. previous | McNemar p | LLM calls / q |
+|---------------|-----------------|--------------|-----------|---------------|
+| baseline — DDL + question | 72.0% | — | — | 1.000 |
+| + two sentences about columns | 74.2% | +2.2% | 0.010 | 1.000 |
+| + sample rows & column values | 75.9% | +1.7% | 0.054 | 1.000 |
+| + 3 retrieved examples | 76.8% | +0.9% | 0.467 | 1.000 |
+| + repair on execution error | **79.0%** | **+2.2%** | **< 0.001** | 1.034 |
 
-Cumulative: **72.0% to 76.8%**, p < 0.001. The last row does not clear
-significance on its own and costs 2.7x the prompt tokens - kept because all
-three of its variants point the same way, but flagged as the first thing to cut
-if prompt size mattered.
+Cumulative: **+7.1 points**, p < 0.001. Two middle rows do not clear
+significance on their own — kept because every variant of each pointed the same
+way, and flagged in [results.md](results.md) with their costs, since the sample
+values row nearly triples the prompt.
+
+**The repair loop is the only stage with no regressions: 23 fixed, 0 broken.**
+That is structural. Every prompt change alters the input for all 1034
+questions and broke 25–56 of them while fixing more; repair only touches a query
+that already failed to execute, which is always scored wrong, so it cannot turn
+a right answer into a wrong one. It took invalid SQL from 33 to 0.
+
+It is capped at two attempts, and the data says one is enough: 23 correct after
+the first repair, still 23 after the second. The cap bounds the latency tail;
+it does not buy accuracy here. The loop never sees the gold query — a test pins
+that its signature has no way to receive one.
 
 Differences are tested with a paired **McNemar exact test**, not by comparing
 two accuracy figures — both runs answer the same questions, so the informative
@@ -102,9 +114,8 @@ Those codes are not an error analysis on their own — `value_mismatch` alone
 covers six different mistakes with six different fixes. The hand-labelled
 breakdown below is what splits them.
 
-Full per-stage numbers, per-database accuracy and the per-question records are
-in [results.md](results.md). Retrieved few-shot examples and the repair loop
-aren't wired up yet — those rows fill in as they land.
+Full per-stage numbers, latency, per-database accuracy and the per-question
+records are in [results.md](results.md).
 
 ## What the failures actually are
 
@@ -199,9 +210,12 @@ src/
   execute.py    read-only, time-bounded SQL execution
   evaluate.py   execution-accuracy scoring
   generate.py   prompt construction and SQL extraction
+  retrieve.py   TF-IDF retrieval of few-shot examples from the train split
+  repair.py     execute-and-repair loop; never sees the gold query
   llm.py        provider calls + content-addressed disk cache
 scripts/        runnable entry points, numbered in the order they're useful
-tests/          37 tests; none need the dataset or an API key
+tests/          66 tests; none need an API key, and those that need the
+                dataset skip cleanly without it
 results/        per-question records for every run in results.md
 results.md      every run and the configuration that produced it
 NOTES.md        decisions, and what went wrong

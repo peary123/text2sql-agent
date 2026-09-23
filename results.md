@@ -20,7 +20,7 @@ correct, one that should score everything wrong.
 | H2 | gold scored against itself | `scripts/02_eval_gold.py --mode identity` | **100.0%** (1034/1034) |
 | H3 | gold vs. a semantics-preserving rewrite | `scripts/02_eval_gold.py --mode rewrite` | **100.0%** (803/803) |
 | H4 | gold vs. a meaning-changing mutation | `scripts/02_eval_gold.py --mode mutation` | **0.0%** (0/454) |
-| H5 | unit tests | `python -m pytest tests/ -q` | **37 / 37 pass** |
+| H5 | unit tests | `python -m pytest tests/ -q` | **66 / 66 pass** |
 
 H2 is the ceiling this project can be measured against: every dev question has a
 gold query that runs, so any later failure belongs to generation.
@@ -58,15 +58,25 @@ and is 92/200 `car_1` — the hardest one. It scores 64.5% against the full set'
 covers all 20 databases with each one's share within 0.5% of its share of the
 full set, and scores 74.0% — a 2.0-point gap instead of 7.5.
 
-| # | configuration | tuning slice | full dev | vs. previous | McNemar p | calls / q | cost |
-|---|---------------|--------------|----------|--------------|-----------|-----------|------|
-| 1 | baseline — DDL + question | 74.0% | 72.0% (744/1034) | — | — | 1.0 | $0.062 |
-| 2 | + column instructions | 76.0% | 74.2% (767/1034) | +2.2% | 0.010 | 1.0 | $0.064 |
-| 3 | + sample rows & column values | 78.0% | 75.9% (785/1034) | +1.7% | 0.054 | 1.0 | $0.171 |
-| 4 | + 3 retrieved examples | - | **76.8%** (794/1034) | +0.9% | 0.467 | 1.0 | $0.239 |
+| # | configuration | tuning slice | full dev | vs. previous | McNemar p | LLM calls / q | p50 / p95 latency | cost / full run |
+|---|---------------|--------------|----------|--------------|-----------|---------------|-------------------|-----------------|
+| 1 | baseline — DDL + question | 74.0% | 72.0% (744/1034) | — | — | 1.000 | 0.74 / 1.24 s | $0.06 |
+| 2 | + column instructions | 76.0% | 74.2% (767/1034) | +2.2% | 0.010 | 1.000 | 0.61 / 0.94 s | $0.06 |
+| 3 | + sample rows & column values | 78.0% | 75.9% (785/1034) | +1.7% | 0.054 | 1.000 | 0.61 / 0.95 s | $0.17 |
+| 4 | + 3 retrieved examples | - | 76.8% (794/1034) | +0.9% | 0.467 | 1.000 | 0.61 / 0.99 s | $0.24 |
+| 5 | + repair on execution error | - | **79.0%** (817/1034) | **+2.2%** | **< 0.001** | 1.034 | 0.62 / 1.10 s | $0.25 |
 
-Cumulative, baseline to run 4: **+4.8 points** (72.0% to 76.8%), McNemar
-p < 0.001.
+Cumulative, baseline to run 5: **+7.1 points** (744 to 817 correct), 108
+questions fixed against 35 broken, McNemar p < 0.001.
+
+**Read the latency column with care.** It is the provider's own response time,
+recorded when each response was generated and replayed from the cache, so it is
+reproducible — but the rows were generated at different times of day under
+whatever load the API had then. The baseline, with the *shortest* prompt, has
+the *highest* latency, which only makes sense if time-of-run dominates. So
+latency is not a controlled comparison between rows. The one increment that is
+controlled is run 5's: its first attempts are run 4's cached responses, so the
+p95 rise from 0.99 s to 1.10 s is the repair loop and nothing else.
 
 How each error class moved across the stages - the most useful table here,
 because the headline hides three trends running in different directions:
@@ -78,6 +88,7 @@ because the headline hides three trends running in different directions:
 | run 3 | 75.9% | 19 | 202 | 26 | 46 |
 | run 4 (k=3) | 76.8% | **33** | 184 | 22 | 45 |
 | run 4 (k=5) | 77.8% | 33 | 177 | 20 | 45 |
+| run 5 | 79.0% | **0** | 193 | 23 | 45 |
 
 Per-question records: [`results/baseline_full.jsonl`](results/baseline_full.jsonl).
 Re-runs are free and byte-identical — `--offline` serves the whole run from the
@@ -341,6 +352,62 @@ databases, and that appears to have held.
 with a SQLite error naming the missing column. The error analysis gave the
 repair loop a 2% share; four stages of prompt work have grown its addressable
 set from 11 questions to 33.
+
+### Run 5 - execute, and repair on error
+
+Run the generated query. If SQLite rejects it, send the model the original
+prompt, its failed query and the exact error message, and ask for a corrected
+query. Cap: two repairs.
+
+**The loop never sees the gold query.** A repair decision uses only the
+predicted query's own execution result - did it error, did it return rows -
+which is what a deployed system would know. `generate_with_repair` takes no
+gold argument at all, and a test inspects its signature so that stays true.
+Intermediate attempts are scored against gold only *after* the loop has
+finished, to measure it; nothing flows back in.
+
+Acceptance line, written before the run: **invalid SQL from 33 to under 10.**
+
+| configuration | full dev | vs. run 4 | fixed | broken | McNemar p | calls / q | p95 latency |
+|---------------|----------|-----------|-------|--------|-----------|-----------|-------------|
+| run 4 | 76.8% | - | - | - | - | 1.000 | 0.99 s |
+| + repair on error | **79.0%** | **+2.2%** | 23 | **0** | **< 0.001** | 1.034 | 1.10 s |
+| + also repair empty results | 79.3% | +0.3% vs. above | 3 | 0 | 0.250 | 1.138 | 1.97 s |
+
+**Invalid SQL went from 33 to 0.** All 33 triggered queries execute after
+repair; 23 of them are now correct, 10 run but return the wrong rows. The
+acceptance line was passed by a wide margin.
+
+**23 fixed, 0 broken - the only stage in the ablation with no regressions, and
+that is structural, not luck.** Every prompt stage changed the input for all
+1034 questions, and each broke between 25 and 56 of them while fixing more.
+Repair only touches a query that has already failed to execute, and a query
+that fails to execute is always scored wrong. It can leave a question wrong or
+make it right; it has no way to make a right answer wrong.
+
+**Why cap the loop at two? The data says one is enough.** Correct after one
+repair: 23 of 33. After two: still 23. Only 2 questions ever reached a second
+repair; it made both queries valid, neither correct. Re-running with a cap of
+one from the cache gives the identical 817 correct answers at 1.032 calls per
+question instead of 1.034. The cap exists to bound the latency tail, not to buy
+accuracy, and on this benchmark a single repair buys all of it.
+
+**Repairing empty results: the risk did not materialise, and neither did the
+gain.** The worry was the 49 dev questions whose gold answer is genuinely
+empty: repairing an empty result pushes the model to change an answer that may
+be right. The repair prompt allows for that - "if an empty result is genuinely
+correct, repeat the query unchanged" - and it held. Of 41 first attempts that
+were already correct and empty, **0 were broken**: 32 were repeated verbatim,
+the other 9 rewritten but still correct. But of 13 wrong empty results, only
+3 were fixed. +0.3 points, p = 0.250, for p95 latency going from 1.10 s to
+1.97 s because 54 more questions now make a second round-trip. Not adopted.
+
+**A prediction that failed.** When the extraction fallbacks in `generate.py`
+never fired during the baseline, NOTES.md kept them on the grounds that repair
+prompts are "exactly the prompt shape that tends to produce 'Sure - here's the
+fix:' in front of the SQL". Across all 33 repair responses: **0 markdown
+fences, 0 leading prose.** `gpt-4o-mini` followed the output instruction on
+every repair too. The fallbacks remain tested and unexercised.
 
 ---
 
