@@ -67,6 +67,13 @@ class Attempt:
     outcome: str  # "ok" | "empty" | "no_sql" | an ExecResult.error_kind
     error: str | None = None
     raw: str = ""  # the model's full response, kept to check how repairs are phrased
+    # Kept so a caller can return the rows without running the query twice.
+    # Not serialised by the evaluation runner, which only needs the outcome.
+    result: ExecResult | None = field(default=None, repr=False)
+
+    @property
+    def exec_s(self) -> float:
+        return self.result.elapsed_s if self.result else 0.0
 
 
 @dataclass
@@ -104,10 +111,11 @@ def diagnose(db_id: str, sql: str | None, policy: RepairPolicy,
         return Attempt(sql=sql, outcome="no_sql", error="the response contained no SQL query")
     result: ExecResult = execute_sql(db_id, sql, timeout_s=timeout_s)
     if not result.ok:
-        return Attempt(sql=sql, outcome=result.error_kind or "sql_error", error=result.error)
+        return Attempt(sql=sql, outcome=result.error_kind or "sql_error",
+                       error=result.error, result=result)
     if not result.rows:
-        return Attempt(sql=sql, outcome="empty")
-    return Attempt(sql=sql, outcome="ok")
+        return Attempt(sql=sql, outcome="empty", result=result)
+    return Attempt(sql=sql, outcome="ok", result=result)
 
 
 def needs_repair(attempt: Attempt, policy: RepairPolicy) -> bool:
