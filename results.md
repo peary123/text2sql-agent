@@ -20,7 +20,7 @@ correct, one that should score everything wrong.
 | H2 | gold scored against itself | `scripts/02_eval_gold.py --mode identity` | **100.0%** (1034/1034) |
 | H3 | gold vs. a semantics-preserving rewrite | `scripts/02_eval_gold.py --mode rewrite` | **100.0%** (803/803) |
 | H4 | gold vs. a meaning-changing mutation | `scripts/02_eval_gold.py --mode mutation` | **0.0%** (0/454) |
-| H5 | unit tests | `python -m pytest tests/ -q` | **66 / 66 pass** |
+| H5 | unit tests | `python -m pytest tests/ -q` | **75 / 75 pass** |
 
 H2 is the ceiling this project can be measured against: every dev question has a
 gold query that runs, so any later failure belongs to generation.
@@ -408,6 +408,68 @@ prompts are "exactly the prompt shape that tends to produce 'Sure - here's the
 fix:' in front of the SQL". Across all 33 repair responses: **0 markdown
 fences, 0 leading prose.** `gpt-4o-mini` followed the output instruction on
 every repair too. The fallbacks remain tested and unexercised.
+
+---
+
+## Serving
+
+`POST /query` (`src/api.py`) serves the run-5 configuration, with one change:
+the repair cap is **1, not 2**. Run 5 measured both at the identical 817
+correct answers; the second repair only lengthens the latency tail.
+
+100 requests from the stratified dev slice, 10 concurrent, one uvicorn process
+on a laptop, measured twice:
+
+| | warm - responses cached | cold - every call live |
+|---|---|---|
+| p50 | **36 ms** | **666 ms** |
+| p95 | 118 ms | 2,317 ms |
+| p99 | 360 ms | 2,699 ms |
+| throughput | 19.1 req/s | 9.9 req/s |
+| server time: model | 6 ms | 849 ms |
+| server time: SQL | 32 ms | 22 ms |
+| server time: everything else | 15 ms | 6 ms |
+| HTTP errors | 0 | 0 |
+| correct | 75 / 100 | 75 / 100 |
+
+The two columns answer different questions. **Cold is what a user waits**: an
+uncached question costs about two thirds of a second at the median, and the
+model is 97% of the server's time. **Warm is this code's own overhead** -
+retrieval, prompt building, SQL execution, serialisation - with the model call
+reduced to a disk read. Reporting only the warm number would claim a 36 ms
+service that no real question ever gets.
+
+Every response carries its own `timings_ms` breakdown. The client measures the
+request end to end; the server attributes its share to the model, to SQL, and
+to everything else, so a slow request can be blamed on the right thing.
+
+**The service returns exactly the evaluated answers.** Every served answer is
+scored against gold. Against the warm server, all 100 agree with the offline
+evaluation of the same configuration - the code path that is deployed is the
+code path that was measured.
+
+**Temperature 0 is not deterministic, measured.** The cold server's live
+answers differ in correctness from the cached ones on 2 of the 100 questions,
+one in each direction - which is why both columns read 75. The cache, not the
+temperature, is what makes every number in this file reproducible.
+
+**The first load test measured itself.** Its first run reported p95 = 655 ms
+for the warm server. The first 10 requests all took ~650 ms on the client while
+the server's own timings for them were under 130 ms, and every request after
+them took ~40 ms. The script was creating each thread's HTTP client inside the
+timed region, and building an `httpx.Client` loads a CA bundle even for plain
+http. Moving it outside the clock: p95 **655 ms to 118 ms**. The server-side
+breakdown is what made the discrepancy visible.
+
+**One heavy query, and a hypothesis it disproved.** The warm maximum, ~2.1 s,
+is `wta_1#470`: the model wrote a `LEFT JOIN` of 20,662 players against the
+rankings table and grouped by first name - 1.9 s on its own, against 0.42 s for
+gold's inner join. I expected it to stall the other nine requests in flight.
+It did not: the median of its batch was 47 ms, the same as any other. SQL runs
+on a worker thread and Python's sqlite3 releases the GIL while SQLite works.
+
+Not verified: the `Dockerfile`. Docker is not installed on the machine this was
+built on, so the image has never been built or run.
 
 ---
 

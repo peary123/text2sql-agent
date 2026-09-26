@@ -689,3 +689,68 @@ increment that is controlled is the repair loop's, because its first attempts
 are run 4's cached responses: p95 0.99 s to 1.10 s is the loop and nothing
 else. Serving-latency claims belong to the FastAPI stage, measured under a
 fixed load in one sitting.
+
+### Two latency numbers, because they answer two questions
+
+Every dev question is already in the response cache, so the obvious load test -
+fire dev questions at the server - measures a server that never calls the
+model. It reports p50 = 36 ms, which is true and describes nothing a user
+experiences.
+
+So the load test runs twice. Warm: the normal cache, which isolates this code's
+own overhead. Cold: `serve.py --cold` points the cache at an empty temporary
+directory, so every call is live. That is the number a real question gets -
+p50 666 ms - and the model is 97% of it.
+
+Each response also reports its own time split into model, SQL and everything
+else. Without that breakdown, the next paragraph would have ended in the wrong
+place.
+
+### The load test was measuring itself
+
+First warm run: p95 = 655 ms. Looked at by position, the first 10 requests all
+took ~650 ms on the client and every request after them took ~40 ms - and the
+server's own timings for those first 10 were under 130 ms.
+
+When the client is slow and the server is not, the time is in the client. Each
+worker thread created its `httpx.Client` on first use, inside the timed region,
+and building one loads a CA bundle even for plain http. Moved outside the
+clock: p95 655 ms to 118 ms.
+
+The server-side breakdown is the only reason this was caught. With a single
+end-to-end number, 655 ms would have gone into the README as a property of the
+service.
+
+### A heavy query did not block the others - I guessed wrong
+
+The warm run's maximum is `wta_1#470`: the model wrote a `LEFT JOIN` of 20,662
+players against rankings, grouped by first name - 1.9 s on its own, where
+gold's inner join takes 0.42 s. I assumed it would stall the other requests in
+flight on a single-process server. The median of its batch of ten was 47 ms,
+like any other batch. Each SQL query runs on its own worker thread, and
+Python's sqlite3 releases the GIL while SQLite executes. Checked before writing
+the fix I was about to write.
+
+### Temperature 0 is not deterministic - now with a number
+
+The cold server re-asked 100 questions live that the cache had answered before.
+Correctness differed on 2 of them, one in each direction, so both runs read
+75/100 and the aggregate hides it. That is the measured version of what this
+file has claimed since the first day: the cache, not the temperature, is what
+makes the results reproducible.
+
+### Serving choices the ablation made
+
+- **One repair, not two.** Run 5 measured both at the identical 817 correct
+  answers. The service takes the cheaper one; the ablation keeps the
+  pre-declared one. Recording both is what lets them differ honestly.
+- **`def`, not `async def`, for `/query`.** The model call and SQLite are both
+  blocking. FastAPI runs sync endpoints on a thread pool; an `async def` would
+  run those blocking calls on the event loop and serialise every request behind
+  the slowest.
+- **`db_id` is an allowlist lookup, never a path component.** It becomes
+  `data/<db_id>/<db_id>.sqlite`, so an unchecked `../../x` walks out of the data
+  directory.
+- **A prompt-injected `DROP TABLE` is a test, not a hope.** The model's output
+  is untrusted input to the executor; the executor, not the model, is what
+  enforces read-only. The test counts the table's rows afterwards.
