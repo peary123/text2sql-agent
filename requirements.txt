@@ -1,13 +1,13 @@
-# step 1-2 need nothing but the standard library; this is for what follows.
-
+# Model client. The client also speaks Anthropic; install `anthropic` and set
+# LLM_MODEL to a claude-* model to use it instead.
 openai>=1.59.0
 
-# The client also speaks Anthropic; uncomment to use a Claude model instead.
-# anthropic>=0.40.0
-
-# few-shot example retrieval
+# Few-shot example retrieval.
 scikit-learn>=1.4
 
-# serving
+# Serving.
 fastapi>=0.115
 uvicorn[standard]>=0.34
+
+# HTTP client for the load test and the API tests.
+httpx>=0.27

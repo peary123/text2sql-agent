@@ -1,0 +1,12 @@
+# Secrets and bulk data never go into the build context.
+.env
+data/
+.llm_cache/
+results/
+.git/
+tests/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/
+.idea/
