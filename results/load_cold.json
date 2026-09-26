@@ -1,0 +1,1525 @@
+{
+  "summary": {
+    "label": "cold",
+    "requests": 100,
+    "concurrency": 10,
+    "http_errors": 0,
+    "p50_ms": 665.6,
+    "p95_ms": 2316.7,
+    "p99_ms": 2699.0,
+    "max_ms": 2824.7,
+    "mean_ms": 878.9,
+    "throughput_rps": 9.92,
+    "server_mean_ms": {
+      "total_ms": 876.4,
+      "llm_ms": 848.9,
+      "sql_ms": 21.5,
+      "other_ms": 6.1
+    },
+    "repaired": 4,
+    "no_working_query": 0,
+    "correct": 75
+  },
+  "requests": [
+    {
+      "qid": "concert_singer#0",
+      "status": 200,
+      "latency_ms": 2067.7,
+      "server": {
+        "total_ms": 2061.3,
+        "llm_ms": 2055.7,
+        "sql_ms": 0.5,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "concert_singer#11",
+      "status": 200,
+      "latency_ms": 2105.0,
+      "server": {
+        "total_ms": 2097.9,
+        "llm_ms": 2090.1,
+        "sql_ms": 0.4,
+        "other_ms": 7.4
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "concert_singer#22",
+      "status": 200,
+      "latency_ms": 2316.7,
+      "server": {
+        "total_ms": 2303.6,
+        "llm_ms": 2295.5,
+        "sql_ms": 0.5,
+        "other_ms": 7.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "concert_singer#33",
+      "status": 200,
+      "latency_ms": 2511.7,
+      "server": {
+        "total_ms": 2509.4,
+        "llm_ms": 2503.9,
+        "sql_ms": 0.4,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "pets_1#45",
+      "status": 200,
+      "latency_ms": 2247.9,
+      "server": {
+        "total_ms": 2228.5,
+        "llm_ms": 2215.8,
+        "sql_ms": 0.4,
+        "other_ms": 12.3
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "pets_1#55",
+      "status": 200,
+      "latency_ms": 2367.4,
+      "server": {
+        "total_ms": 2356.9,
+        "llm_ms": 2346.8,
+        "sql_ms": 0.5,
+        "other_ms": 9.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "pets_1#66",
+      "status": 200,
+      "latency_ms": 2699.0,
+      "server": {
+        "total_ms": 2694.5,
+        "llm_ms": 2686.4,
+        "sql_ms": 0.5,
+        "other_ms": 7.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "pets_1#76",
+      "status": 200,
+      "latency_ms": 2121.5,
+      "server": {
+        "total_ms": 2118.9,
+        "llm_ms": 2113.3,
+        "sql_ms": 0.4,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "car_1#87",
+      "status": 200,
+      "latency_ms": 2152.9,
+      "server": {
+        "total_ms": 2146.9,
+        "llm_ms": 2141.4,
+        "sql_ms": 0.4,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "car_1#97",
+      "status": 200,
+      "latency_ms": 2824.7,
+      "server": {
+        "total_ms": 2801.3,
+        "llm_ms": 2790.1,
+        "sql_ms": 0.6,
+        "other_ms": 10.5
+      },
+      "repaired": true,
+      "llm_calls": 2,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "car_1#107",
+      "status": 200,
+      "latency_ms": 645.6,
+      "server": {
+        "total_ms": 644.1,
+        "llm_ms": 638.3,
+        "sql_ms": 0.6,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "car_1#117",
+      "status": 200,
+      "latency_ms": 533.5,
+      "server": {
+        "total_ms": 532.0,
+        "llm_ms": 524.8,
+        "sql_ms": 0.4,
+        "other_ms": 6.8
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "car_1#127",
+      "status": 200,
+      "latency_ms": 429.0,
+      "server": {
+        "total_ms": 427.4,
+        "llm_ms": 422.3,
+        "sql_ms": 0.5,
+        "other_ms": 4.6
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "car_1#138",
+      "status": 200,
+      "latency_ms": 901.1,
+      "server": {
+        "total_ms": 899.6,
+        "llm_ms": 894.5,
+        "sql_ms": 0.5,
+        "other_ms": 4.6
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "car_1#148",
+      "status": 200,
+      "latency_ms": 833.1,
+      "server": {
+        "total_ms": 831.7,
+        "llm_ms": 826.2,
+        "sql_ms": 0.5,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "car_1#158",
+      "status": 200,
+      "latency_ms": 1716.8,
+      "server": {
+        "total_ms": 1715.3,
+        "llm_ms": 1704.2,
+        "sql_ms": 0.6,
+        "other_ms": 10.4
+      },
+      "repaired": true,
+      "llm_calls": 2,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "car_1#168",
+      "status": 200,
+      "latency_ms": 1863.3,
+      "server": {
+        "total_ms": 1861.8,
+        "llm_ms": 1850.8,
+        "sql_ms": 0.5,
+        "other_ms": 10.5
+      },
+      "repaired": true,
+      "llm_calls": 2,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "flight_2#179",
+      "status": 200,
+      "latency_ms": 709.1,
+      "server": {
+        "total_ms": 707.5,
+        "llm_ms": 703.1,
+        "sql_ms": 0.4,
+        "other_ms": 4.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "flight_2#189",
+      "status": 200,
+      "latency_ms": 476.6,
+      "server": {
+        "total_ms": 475.0,
+        "llm_ms": 466.7,
+        "sql_ms": 1.2,
+        "other_ms": 7.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "flight_2#199",
+      "status": 200,
+      "latency_ms": 680.5,
+      "server": {
+        "total_ms": 679.0,
+        "llm_ms": 674.0,
+        "sql_ms": 0.4,
+        "other_ms": 4.6
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "flight_2#209",
+      "status": 200,
+      "latency_ms": 887.4,
+      "server": {
+        "total_ms": 885.8,
+        "llm_ms": 881.0,
+        "sql_ms": 0.7,
+        "other_ms": 4.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "flight_2#219",
+      "status": 200,
+      "latency_ms": 706.4,
+      "server": {
+        "total_ms": 705.0,
+        "llm_ms": 700.5,
+        "sql_ms": 0.4,
+        "other_ms": 4.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "flight_2#229",
+      "status": 200,
+      "latency_ms": 574.8,
+      "server": {
+        "total_ms": 572.7,
+        "llm_ms": 567.5,
+        "sql_ms": 0.5,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "flight_2#239",
+      "status": 200,
+      "latency_ms": 773.2,
+      "server": {
+        "total_ms": 771.4,
+        "llm_ms": 766.1,
+        "sql_ms": 0.5,
+        "other_ms": 4.8
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "flight_2#249",
+      "status": 200,
+      "latency_ms": 581.9,
+      "server": {
+        "total_ms": 579.7,
+        "llm_ms": 574.6,
+        "sql_ms": 0.7,
+        "other_ms": 4.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "employee_hire_evaluation#259",
+      "status": 200,
+      "latency_ms": 523.4,
+      "server": {
+        "total_ms": 521.8,
+        "llm_ms": 517.0,
+        "sql_ms": 0.4,
+        "other_ms": 4.3
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "employee_hire_evaluation#268",
+      "status": 200,
+      "latency_ms": 555.5,
+      "server": {
+        "total_ms": 553.9,
+        "llm_ms": 548.9,
+        "sql_ms": 0.4,
+        "other_ms": 4.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "employee_hire_evaluation#278",
+      "status": 200,
+      "latency_ms": 613.0,
+      "server": {
+        "total_ms": 611.6,
+        "llm_ms": 606.3,
+        "sql_ms": 0.6,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "employee_hire_evaluation#287",
+      "status": 200,
+      "latency_ms": 715.6,
+      "server": {
+        "total_ms": 713.9,
+        "llm_ms": 708.4,
+        "sql_ms": 0.6,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#297",
+      "status": 200,
+      "latency_ms": 611.6,
+      "server": {
+        "total_ms": 610.0,
+        "llm_ms": 605.5,
+        "sql_ms": 0.5,
+        "other_ms": 4.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#307",
+      "status": 200,
+      "latency_ms": 588.5,
+      "server": {
+        "total_ms": 587.0,
+        "llm_ms": 582.0,
+        "sql_ms": 0.4,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#318",
+      "status": 200,
+      "latency_ms": 368.4,
+      "server": {
+        "total_ms": 366.8,
+        "llm_ms": 361.7,
+        "sql_ms": 0.4,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#328",
+      "status": 200,
+      "latency_ms": 861.3,
+      "server": {
+        "total_ms": 859.6,
+        "llm_ms": 854.3,
+        "sql_ms": 0.3,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#339",
+      "status": 200,
+      "latency_ms": 685.2,
+      "server": {
+        "total_ms": 683.2,
+        "llm_ms": 614.8,
+        "sql_ms": 0.4,
+        "other_ms": 67.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#349",
+      "status": 200,
+      "latency_ms": 593.7,
+      "server": {
+        "total_ms": 592.1,
+        "llm_ms": 586.8,
+        "sql_ms": 0.4,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#360",
+      "status": 200,
+      "latency_ms": 584.5,
+      "server": {
+        "total_ms": 582.8,
+        "llm_ms": 577.4,
+        "sql_ms": 0.4,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "cre_Doc_Template_Mgt#370",
+      "status": 200,
+      "latency_ms": 931.6,
+      "server": {
+        "total_ms": 929.9,
+        "llm_ms": 924.4,
+        "sql_ms": 0.5,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "course_teach#381",
+      "status": 200,
+      "latency_ms": 496.2,
+      "server": {
+        "total_ms": 494.6,
+        "llm_ms": 489.5,
+        "sql_ms": 0.5,
+        "other_ms": 4.6
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "course_teach#391",
+      "status": 200,
+      "latency_ms": 552.9,
+      "server": {
+        "total_ms": 551.4,
+        "llm_ms": 545.7,
+        "sql_ms": 0.5,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "course_teach#401",
+      "status": 200,
+      "latency_ms": 694.8,
+      "server": {
+        "total_ms": 693.3,
+        "llm_ms": 688.0,
+        "sql_ms": 0.5,
+        "other_ms": 4.8
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "museum_visit#411",
+      "status": 200,
+      "latency_ms": 559.8,
+      "server": {
+        "total_ms": 557.5,
+        "llm_ms": 552.3,
+        "sql_ms": 0.5,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "museum_visit#420",
+      "status": 200,
+      "latency_ms": 1047.0,
+      "server": {
+        "total_ms": 1045.4,
+        "llm_ms": 1040.0,
+        "sql_ms": 0.5,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "wta_1#429",
+      "status": 200,
+      "latency_ms": 562.0,
+      "server": {
+        "total_ms": 560.3,
+        "llm_ms": 554.8,
+        "sql_ms": 0.6,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "wta_1#439",
+      "status": 200,
+      "latency_ms": 476.8,
+      "server": {
+        "total_ms": 474.9,
+        "llm_ms": 469.2,
+        "sql_ms": 0.6,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "wta_1#449",
+      "status": 200,
+      "latency_ms": 540.1,
+      "server": {
+        "total_ms": 538.6,
+        "llm_ms": 533.2,
+        "sql_ms": 0.5,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "wta_1#460",
+      "status": 200,
+      "latency_ms": 894.1,
+      "server": {
+        "total_ms": 892.4,
+        "llm_ms": 838.3,
+        "sql_ms": 48.5,
+        "other_ms": 5.6
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "wta_1#470",
+      "status": 200,
+      "latency_ms": 2690.6,
+      "server": {
+        "total_ms": 2688.3,
+        "llm_ms": 781.7,
+        "sql_ms": 1898.1,
+        "other_ms": 8.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "wta_1#480",
+      "status": 200,
+      "latency_ms": 719.0,
+      "server": {
+        "total_ms": 717.2,
+        "llm_ms": 564.2,
+        "sql_ms": 148.6,
+        "other_ms": 4.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "battle_death#491",
+      "status": 200,
+      "latency_ms": 684.6,
+      "server": {
+        "total_ms": 682.8,
+        "llm_ms": 678.5,
+        "sql_ms": 0.4,
+        "other_ms": 3.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "battle_death#499",
+      "status": 200,
+      "latency_ms": 1114.8,
+      "server": {
+        "total_ms": 1113.3,
+        "llm_ms": 1108.0,
+        "sql_ms": 0.4,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "student_transcripts_tracking#507",
+      "status": 200,
+      "latency_ms": 698.8,
+      "server": {
+        "total_ms": 697.1,
+        "llm_ms": 691.4,
+        "sql_ms": 0.6,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "student_transcripts_tracking#516",
+      "status": 200,
+      "latency_ms": 1195.6,
+      "server": {
+        "total_ms": 1194.2,
+        "llm_ms": 1185.1,
+        "sql_ms": 0.5,
+        "other_ms": 8.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "student_transcripts_tracking#526",
+      "status": 200,
+      "latency_ms": 722.4,
+      "server": {
+        "total_ms": 720.7,
+        "llm_ms": 715.4,
+        "sql_ms": 0.5,
+        "other_ms": 4.8
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "student_transcripts_tracking#536",
+      "status": 200,
+      "latency_ms": 901.1,
+      "server": {
+        "total_ms": 899.6,
+        "llm_ms": 894.4,
+        "sql_ms": 0.5,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "student_transcripts_tracking#546",
+      "status": 200,
+      "latency_ms": 586.1,
+      "server": {
+        "total_ms": 584.3,
+        "llm_ms": 578.4,
+        "sql_ms": 0.6,
+        "other_ms": 5.3
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "student_transcripts_tracking#555",
+      "status": 200,
+      "latency_ms": 852.1,
+      "server": {
+        "total_ms": 850.6,
+        "llm_ms": 844.8,
+        "sql_ms": 0.5,
+        "other_ms": 5.4
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "student_transcripts_tracking#565",
+      "status": 200,
+      "latency_ms": 678.1,
+      "server": {
+        "total_ms": 675.5,
+        "llm_ms": 669.9,
+        "sql_ms": 0.4,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "student_transcripts_tracking#575",
+      "status": 200,
+      "latency_ms": 1483.4,
+      "server": {
+        "total_ms": 1481.8,
+        "llm_ms": 1470.9,
+        "sql_ms": 0.5,
+        "other_ms": 10.4
+      },
+      "repaired": true,
+      "llm_calls": 2,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "tvshow#585",
+      "status": 200,
+      "latency_ms": 459.9,
+      "server": {
+        "total_ms": 458.2,
+        "llm_ms": 452.9,
+        "sql_ms": 0.4,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "tvshow#595",
+      "status": 200,
+      "latency_ms": 564.9,
+      "server": {
+        "total_ms": 563.1,
+        "llm_ms": 553.8,
+        "sql_ms": 3.4,
+        "other_ms": 5.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "tvshow#605",
+      "status": 200,
+      "latency_ms": 729.1,
+      "server": {
+        "total_ms": 727.6,
+        "llm_ms": 722.0,
+        "sql_ms": 0.4,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "tvshow#616",
+      "status": 200,
+      "latency_ms": 598.4,
+      "server": {
+        "total_ms": 596.8,
+        "llm_ms": 591.5,
+        "sql_ms": 0.4,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "tvshow#626",
+      "status": 200,
+      "latency_ms": 629.1,
+      "server": {
+        "total_ms": 627.5,
+        "llm_ms": 622.3,
+        "sql_ms": 0.4,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "tvshow#636",
+      "status": 200,
+      "latency_ms": 614.6,
+      "server": {
+        "total_ms": 613.0,
+        "llm_ms": 607.7,
+        "sql_ms": 0.4,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "poker_player#647",
+      "status": 200,
+      "latency_ms": 433.8,
+      "server": {
+        "total_ms": 432.5,
+        "llm_ms": 426.9,
+        "sql_ms": 0.4,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "poker_player#657",
+      "status": 200,
+      "latency_ms": 524.4,
+      "server": {
+        "total_ms": 522.8,
+        "llm_ms": 517.4,
+        "sql_ms": 0.4,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "poker_player#667",
+      "status": 200,
+      "latency_ms": 672.3,
+      "server": {
+        "total_ms": 669.9,
+        "llm_ms": 664.5,
+        "sql_ms": 0.4,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "poker_player#677",
+      "status": 200,
+      "latency_ms": 537.6,
+      "server": {
+        "total_ms": 533.4,
+        "llm_ms": 528.2,
+        "sql_ms": 0.4,
+        "other_ms": 4.8
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "voter_1#687",
+      "status": 200,
+      "latency_ms": 571.6,
+      "server": {
+        "total_ms": 569.6,
+        "llm_ms": 563.8,
+        "sql_ms": 0.4,
+        "other_ms": 5.4
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "world_1#702",
+      "status": 200,
+      "latency_ms": 665.6,
+      "server": {
+        "total_ms": 664.1,
+        "llm_ms": 658.3,
+        "sql_ms": 0.5,
+        "other_ms": 5.3
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "world_1#714",
+      "status": 200,
+      "latency_ms": 562.2,
+      "server": {
+        "total_ms": 560.3,
+        "llm_ms": 554.4,
+        "sql_ms": 0.5,
+        "other_ms": 5.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "world_1#726",
+      "status": 200,
+      "latency_ms": 489.5,
+      "server": {
+        "total_ms": 488.0,
+        "llm_ms": 482.3,
+        "sql_ms": 0.6,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "world_1#738",
+      "status": 200,
+      "latency_ms": 614.2,
+      "server": {
+        "total_ms": 612.7,
+        "llm_ms": 608.1,
+        "sql_ms": 0.4,
+        "other_ms": 4.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "world_1#750",
+      "status": 200,
+      "latency_ms": 722.3,
+      "server": {
+        "total_ms": 720.8,
+        "llm_ms": 715.3,
+        "sql_ms": 0.6,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "world_1#762",
+      "status": 200,
+      "latency_ms": 706.9,
+      "server": {
+        "total_ms": 705.5,
+        "llm_ms": 699.9,
+        "sql_ms": 0.4,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "world_1#774",
+      "status": 200,
+      "latency_ms": 663.9,
+      "server": {
+        "total_ms": 660.8,
+        "llm_ms": 655.4,
+        "sql_ms": 0.5,
+        "other_ms": 5.0
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "world_1#786",
+      "status": 200,
+      "latency_ms": 948.0,
+      "server": {
+        "total_ms": 946.3,
+        "llm_ms": 940.3,
+        "sql_ms": 1.1,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "world_1#798",
+      "status": 200,
+      "latency_ms": 687.5,
+      "server": {
+        "total_ms": 686.0,
+        "llm_ms": 680.4,
+        "sql_ms": 0.8,
+        "other_ms": 4.8
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "world_1#810",
+      "status": 200,
+      "latency_ms": 556.0,
+      "server": {
+        "total_ms": 554.2,
+        "llm_ms": 548.8,
+        "sql_ms": 0.5,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "orchestra#822",
+      "status": 200,
+      "latency_ms": 663.0,
+      "server": {
+        "total_ms": 661.6,
+        "llm_ms": 656.6,
+        "sql_ms": 0.4,
+        "other_ms": 4.6
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "orchestra#832",
+      "status": 200,
+      "latency_ms": 681.3,
+      "server": {
+        "total_ms": 679.8,
+        "llm_ms": 674.2,
+        "sql_ms": 0.4,
+        "other_ms": 5.2
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "orchestra#842",
+      "status": 200,
+      "latency_ms": 841.0,
+      "server": {
+        "total_ms": 838.8,
+        "llm_ms": 833.0,
+        "sql_ms": 0.4,
+        "other_ms": 5.4
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "orchestra#852",
+      "status": 200,
+      "latency_ms": 556.5,
+      "server": {
+        "total_ms": 554.6,
+        "llm_ms": 549.3,
+        "sql_ms": 0.5,
+        "other_ms": 4.8
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "network_1#862",
+      "status": 200,
+      "latency_ms": 519.9,
+      "server": {
+        "total_ms": 518.4,
+        "llm_ms": 513.1,
+        "sql_ms": 0.4,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "network_1#873",
+      "status": 200,
+      "latency_ms": 616.1,
+      "server": {
+        "total_ms": 614.3,
+        "llm_ms": 609.2,
+        "sql_ms": 0.4,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "network_1#884",
+      "status": 200,
+      "latency_ms": 629.4,
+      "server": {
+        "total_ms": 627.9,
+        "llm_ms": 622.3,
+        "sql_ms": 0.5,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "network_1#895",
+      "status": 200,
+      "latency_ms": 530.1,
+      "server": {
+        "total_ms": 528.5,
+        "llm_ms": 522.3,
+        "sql_ms": 0.5,
+        "other_ms": 5.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "network_1#906",
+      "status": 200,
+      "latency_ms": 691.7,
+      "server": {
+        "total_ms": 690.0,
+        "llm_ms": 684.4,
+        "sql_ms": 0.5,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": false
+    },
+    {
+      "qid": "dog_kennels#918",
+      "status": 200,
+      "latency_ms": 503.6,
+      "server": {
+        "total_ms": 501.9,
+        "llm_ms": 496.8,
+        "sql_ms": 0.6,
+        "other_ms": 4.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "dog_kennels#928",
+      "status": 200,
+      "latency_ms": 645.0,
+      "server": {
+        "total_ms": 643.2,
+        "llm_ms": 637.8,
+        "sql_ms": 0.5,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "dog_kennels#938",
+      "status": 200,
+      "latency_ms": 951.6,
+      "server": {
+        "total_ms": 950.3,
+        "llm_ms": 944.6,
+        "sql_ms": 0.7,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "dog_kennels#948",
+      "status": 200,
+      "latency_ms": 668.0,
+      "server": {
+        "total_ms": 666.3,
+        "llm_ms": 660.3,
+        "sql_ms": 0.5,
+        "other_ms": 5.6
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "dog_kennels#959",
+      "status": 200,
+      "latency_ms": 622.0,
+      "server": {
+        "total_ms": 620.5,
+        "llm_ms": 615.4,
+        "sql_ms": 0.4,
+        "other_ms": 4.7
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "dog_kennels#969",
+      "status": 200,
+      "latency_ms": 767.4,
+      "server": {
+        "total_ms": 765.8,
+        "llm_ms": 760.4,
+        "sql_ms": 0.4,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "dog_kennels#979",
+      "status": 200,
+      "latency_ms": 619.6,
+      "server": {
+        "total_ms": 618.0,
+        "llm_ms": 611.9,
+        "sql_ms": 0.8,
+        "other_ms": 5.3
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "dog_kennels#989",
+      "status": 200,
+      "latency_ms": 466.5,
+      "server": {
+        "total_ms": 464.8,
+        "llm_ms": 459.1,
+        "sql_ms": 0.8,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "singer#1000",
+      "status": 200,
+      "latency_ms": 516.9,
+      "server": {
+        "total_ms": 515.6,
+        "llm_ms": 510.4,
+        "sql_ms": 0.6,
+        "other_ms": 4.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "singer#1010",
+      "status": 200,
+      "latency_ms": 618.3,
+      "server": {
+        "total_ms": 616.6,
+        "llm_ms": 611.1,
+        "sql_ms": 0.4,
+        "other_ms": 5.1
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "singer#1020",
+      "status": 200,
+      "latency_ms": 777.3,
+      "server": {
+        "total_ms": 775.5,
+        "llm_ms": 770.2,
+        "sql_ms": 0.4,
+        "other_ms": 4.9
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    },
+    {
+      "qid": "real_estate_properties#1030",
+      "status": 200,
+      "latency_ms": 545.7,
+      "server": {
+        "total_ms": 544.3,
+        "llm_ms": 539.3,
+        "sql_ms": 0.4,
+        "other_ms": 4.5
+      },
+      "repaired": false,
+      "llm_calls": 1,
+      "model_error": null,
+      "correct": true
+    }
+  ]
+}
